@@ -1,101 +1,58 @@
-// Modelo de datos: Cargas
-// { id: string, pedido: string, estado: string }
+import { guardarDatos, obtenerDatos } from './storage.js';
+import { listarPedidos } from './pedidos.js';
+import { listarPallets, guardarPallets, ESTADOS_PALLET } from './pallets.js';
 
-import { getPedidoById, updatePedidoEstado, ESTADOS_PEDIDO } from './pedidos.js';
-import { updatePalletEstado, ESTADOS_PALLET, getPalletById } from './stock.js';
-import { updateContenedorEstado, ESTADOS_CONTENEDOR } from './contenedores.js';
+const KEY = 'cargas';
 
-const STORAGE_KEY = 'wms_cargas';
-
-export const ESTADOS_CARGA = {
-  PREPARANDO: 'PREPARANDO',
-  FINALIZADA: 'FINALIZADA'
-};
-
-export function getCargas() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+export function listarCargas() {
+  return obtenerDatos(KEY);
 }
 
-export function saveCargas(cargas) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cargas));
-}
+export function crearCarga(cliente) {
+  const pedidos = listarPedidos().filter((p) => p.cliente === cliente && p.estado === 'ABIERTO');
+  if (!pedidos.length) throw new Error('No hay pedido ABIERTO para el cliente.');
 
-export function addCarga(pedidoId) {
-  const cargas = getCargas();
-  const pedido = getPedidoById(pedidoId);
+  const pedido = pedidos[0];
+  const pallets = listarPallets();
+  const ids = pedido.pallets.map(Number);
 
-  if (!pedido) {
-    throw new Error('El pedido seleccionado no existe.');
-  }
+  const actualizados = pallets.map((p) => (ids.includes(Number(p.id)) ? { ...p, estado: ESTADOS_PALLET.EN_CARGA } : p));
+  guardarPallets(actualizados);
 
-  if (pedido.estado !== ESTADOS_PEDIDO.CREADO) {
-    throw new Error('El pedido ya no está disponible para preparar una nueva carga.');
-  }
-
-  const cargaActiva = cargas.find(c => c.pedido === pedidoId && c.estado === ESTADOS_CARGA.PREPARANDO);
-  if (cargaActiva) {
-    throw new Error('Ya existe una carga en preparación para este pedido.');
-  }
-
-  const nextNumber = cargas.reduce((max, c) => {
-    const n = parseInt(String(c.id).replace('CAR-', ''), 10);
-    return Number.isFinite(n) ? Math.max(max, n) : max;
-  }, 0) + 1;
-  
-  const carga = {
-    id: 'CAR-' + String(nextNumber).padStart(3, '0'),
-    pedido: pedidoId,
-    estado: ESTADOS_CARGA.PREPARANDO
-  };
-  
+  const cargas = listarCargas();
+  const nextId = cargas.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0) + 1;
+  const carga = { id: nextId, cliente, pallets: ids, fecha: new Date().toISOString().slice(0, 10) };
   cargas.push(carga);
-  saveCargas(cargas);
-  
-  // Actualizar pedido a EN_PREPARACION
-  updatePedidoEstado(pedidoId, ESTADOS_PEDIDO.EN_PREPARACION);
-  
-  // Actualizar pallets a EN_CARGA
-  pedido.pallets.forEach(palletId => {
-    updatePalletEstado(palletId, ESTADOS_PALLET.EN_CARGA);
-  });
-  
+  guardarDatos(KEY, cargas);
   return carga;
 }
 
-export function finalizarCarga(cargaId) {
-  const cargas = getCargas();
-  const index = cargas.findIndex(c => c.id === cargaId);
-  
-  if (index !== -1) {
-    cargas[index].estado = ESTADOS_CARGA.FINALIZADA;
-    saveCargas(cargas);
-    
-    const carga = cargas[index];
-    
-    // Actualizar pedido a COMPLETADO
-    updatePedidoEstado(carga.pedido, ESTADOS_PEDIDO.COMPLETADO);
-    
-    // Actualizar pallets a DESPACHADO y liberar contenedores
-    const pedido = getPedidoById(carga.pedido);
-    if (pedido) {
-      pedido.pallets.forEach(palletId => {
-        const pallet = updatePalletEstado(palletId, ESTADOS_PALLET.DESPACHADO);
-        if (pallet && pallet.contenedor) {
-          updateContenedorEstado(pallet.contenedor, ESTADOS_CONTENEDOR.LIBRE);
-        }
-      });
+export function moverPalletACarga(palletId) {
+  const pallets = listarPallets();
+  const idx = pallets.findIndex((p) => Number(p.id) === Number(palletId));
+  if (idx < 0) throw new Error('Pallet no existe.');
+  if (pallets[idx].estado !== ESTADOS_PALLET.RESERVADO) throw new Error('Pallet debe estar RESERVADO.');
+  pallets[idx].estado = ESTADOS_PALLET.EN_CARGA;
+  guardarPallets(pallets);
+  return pallets[idx];
+}
+
+export function generarPlanillaCarga(lista = []) {
+  const totalKilos = lista.reduce((acc, p) => acc + (Number(p.kilos) || 0), 0);
+  return { cantidadPallets: lista.length, totalKilos };
+}
+
+export function cargaSanJacinto() {
+  const pallets = listarPallets();
+  const seleccion = [];
+
+  pallets.forEach((p) => {
+    if (String(p.cliente).toUpperCase().includes('SAN JACINTO') && p.estado === ESTADOS_PALLET.EN_CAMARA) {
+      p.estado = ESTADOS_PALLET.EN_CARGA;
+      seleccion.push(p);
     }
-    
-    return carga;
-  }
-  return null;
-}
+  });
 
-export function getCargaById(id) {
-  return getCargas().find(c => c.id === id);
-}
-
-export function resetCargas() {
-  localStorage.removeItem(STORAGE_KEY);
+  guardarPallets(pallets);
+  return seleccion;
 }
