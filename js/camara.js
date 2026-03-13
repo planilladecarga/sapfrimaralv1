@@ -36,20 +36,20 @@ export function renderCamara(containerId) {
     html += `
       <div class="bg-white p-4 rounded-lg shadow">
         <h3 class="text-lg font-bold mb-3 text-gray-700 border-b pb-2">Fila ${fila}</h3>
-        <div class="grid grid-cols-12 gap-2">
+        <div class="camara-grid">
     `;
 
     grilla[fila].forEach(c => {
-      let colorClass = 'bg-green-500 text-white'; // LIBRE
+      let colorClass = 'posicion-libre'; // LIBRE
       if (c.estado === ESTADOS_CONTENEDOR.OCUPADO) {
-        colorClass = 'bg-orange-500 text-white';
+        colorClass = 'posicion-ocupado';
       } else if (c.estado === ESTADOS_CONTENEDOR.RESERVADO) {
-        colorClass = 'bg-yellow-400 text-gray-800';
+        colorClass = 'posicion-reservado';
       }
 
       html += `
-        <div class="flex flex-col items-center justify-center p-2 rounded ${colorClass} text-xs font-bold cursor-pointer hover:opacity-80 transition-opacity" title="Estado: ${c.estado}">
-          ${c.posicion}
+        <div class="flex flex-col items-center justify-center p-1 rounded ${colorClass} text-[10px] font-bold cursor-pointer hover:opacity-80 transition-opacity" title="ID: ${c.id} | Estado: ${c.estado}">
+          ${c.posicion.split('-')[1]}
         </div>
       `;
     });
@@ -65,9 +65,9 @@ export function renderCamara(containerId) {
   // Leyenda
   html += `
     <div class="mt-6 flex space-x-4 bg-white p-4 rounded-lg shadow">
-      <div class="flex items-center"><span class="w-4 h-4 bg-green-500 rounded mr-2"></span> Libre</div>
-      <div class="flex items-center"><span class="w-4 h-4 bg-orange-500 rounded mr-2"></span> Ocupado</div>
-      <div class="flex items-center"><span class="w-4 h-4 bg-yellow-400 rounded mr-2"></span> Reservado</div>
+      <div class="flex items-center"><span class="w-4 h-4 posicion-libre rounded mr-2"></span> Libre</div>
+      <div class="flex items-center"><span class="w-4 h-4 posicion-ocupado rounded mr-2"></span> Ocupado</div>
+      <div class="flex items-center"><span class="w-4 h-4 posicion-reservado rounded mr-2"></span> Reservado</div>
     </div>
   `;
 

@@ -29,30 +29,42 @@ export function procesarExcel(file, callback) {
         const primeraCelda = String(row[0]).trim();
         
         // Detectar si la fila indica un nuevo cliente
-        // Ejemplo: "Cliente: 435 ANTIC SA"
+        // Ejemplo: "Cliente: 435 ANTIC S.A."
         if (primeraCelda.toLowerCase().startsWith('cliente:')) {
-          const nombreCliente = primeraCelda.substring(8).trim();
-          clienteActual = addCliente(nombreCliente);
-          clientesCreados++;
+          const clienteStr = primeraCelda.substring(8).trim(); // "435 ANTIC S.A."
+          const match = clienteStr.match(/^(\d+)\s+(.+)$/);
+          
+          if (match) {
+            const clienteId = parseInt(match[1]);
+            const nombreCliente = match[2].trim();
+            clienteActual = addCliente(clienteId, nombreCliente);
+            clientesCreados++;
+          }
           continue; // Pasar a la siguiente fila
         }
         
         // Si ya tenemos un cliente actual y la fila tiene datos de pallet
-        // Asumimos estructura: [Producto, Lote, Contenedor, Kilos] u otra similar
-        // Ajustaremos esto según lo que parezca lógico:
-        // Col 0: Producto, Col 1: Lote, Col 2: Contenedor, Col 3: Kilos
-        if (clienteActual && primeraCelda !== '' && primeraCelda.toLowerCase() !== 'producto') {
-          const producto = String(row[0] || '').trim();
-          const lote = String(row[1] || '').trim();
-          const posicionContenedor = String(row[2] || '').trim();
-          const kilos = parseFloat(row[3]) || 0;
+        // Asumimos estructura: [ID Pallet, Producto, Lote, Contenedor, Kilos]
+        if (clienteActual && primeraCelda !== '' && primeraCelda.toLowerCase() !== 'id' && primeraCelda.toLowerCase() !== 'pallet') {
+          const idPallet = String(row[0] || '').trim();
+          const producto = String(row[1] || '').trim();
+          const lote = String(row[2] || '').trim();
+          const idContenedor = String(row[3] || '').trim();
+          const kilos = parseFloat(row[4]) || 0;
           
-          if (producto && posicionContenedor) {
-            // Asegurar que el contenedor existe
-            const contenedor = addContenedor(posicionContenedor);
+          if (idPallet && producto && idContenedor) {
+            // Asegurar que el contenedor existe, asumiendo que el ID del contenedor (ej. C20-118)
+            // y la posición podrían ser lo mismo si no hay más datos, o podemos extraer la posición
+            // Para simplificar, usamos el idContenedor como ID y como posición si no tenemos más info.
+            // O podemos generar una posición aleatoria si no está en el excel, pero el prompt dice:
+            // Contenedores: { id:"C20-118", posicion:"A2-05", estado:"OCUPADO" }
+            // Asumiremos que el excel trae el ID del contenedor. La posición la asignaremos si existe,
+            // o usaremos un valor por defecto si no está en la grilla.
+            
+            const contenedor = addContenedor(idContenedor, idContenedor); // Usamos ID como posición temporal si no existe
             
             // Crear el pallet
-            addPallet(clienteActual.id, producto, lote, contenedor.id, kilos);
+            addPallet(idPallet, clienteActual.id, producto, lote, contenedor.id, kilos);
             palletsImportados++;
           }
         }

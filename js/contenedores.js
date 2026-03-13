@@ -26,17 +26,21 @@ export function getContenedorByPosicion(posicion) {
   return getContenedores().find(c => c.posicion === posicion);
 }
 
-export function addContenedor(posicion) {
+export function addContenedor(id, posicion) {
   const contenedores = getContenedores();
-  let contenedor = getContenedorByPosicion(posicion);
+  let contenedor = getContenedorById(id) || getContenedorByPosicion(posicion);
   
   if (!contenedor) {
     contenedor = {
-      id: 'CONT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      id: id,
       posicion: posicion,
       estado: ESTADOS_CONTENEDOR.LIBRE
     };
     contenedores.push(contenedor);
+    saveContenedores(contenedores);
+  } else if (contenedor.id !== id) {
+    // Si la posicion existe pero con otro ID, actualizamos el ID
+    contenedor.id = id;
     saveContenedores(contenedores);
   }
   
@@ -59,7 +63,7 @@ export function resetContenedores() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-// Inicializar grilla de cámara A1-A23, A2-A23, A3-A23, A4-A23
+// Inicializar grilla de cámara A1-01 a A4-23
 export function initContenedoresCamara() {
   const contenedores = getContenedores();
   if (contenedores.length > 0) return; // Ya inicializados
@@ -70,7 +74,8 @@ export function initContenedoresCamara() {
   for (const fila of filas) {
     for (let i = 1; i <= maxPosiciones; i++) {
       const posicion = `${fila}-${i.toString().padStart(2, '0')}`;
-      addContenedor(posicion);
+      const id = `C20-${fila}${i}`; // ID generado por defecto si no viene del excel
+      addContenedor(id, posicion);
     }
   }
 }

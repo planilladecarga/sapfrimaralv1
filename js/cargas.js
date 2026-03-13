@@ -1,8 +1,8 @@
 // Modelo de datos: Cargas
-// { id: string, pedidoId: string, contenedores: string[], estado: string }
+// { id: string, pedido: string, estado: string }
 
 import { getPedidoById, updatePedidoEstado, ESTADOS_PEDIDO } from './pedidos.js';
-import { updatePalletEstado, ESTADOS_PALLET } from './stock.js';
+import { updatePalletEstado, ESTADOS_PALLET, getPalletById } from './stock.js';
 import { updateContenedorEstado, ESTADOS_CONTENEDOR } from './contenedores.js';
 
 const STORAGE_KEY = 'wms_cargas';
@@ -21,13 +21,12 @@ export function saveCargas(cargas) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cargas));
 }
 
-export function addCarga(pedidoId, contenedoresIds) {
+export function addCarga(pedidoId) {
   const cargas = getCargas();
   
   const carga = {
-    id: 'CARGA-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-    pedidoId,
-    contenedores: contenedoresIds,
+    id: 'CAR-' + String(cargas.length + 1).padStart(3, '0'),
+    pedido: pedidoId,
     estado: ESTADOS_CARGA.PREPARANDO
   };
   
@@ -59,15 +58,15 @@ export function finalizarCarga(cargaId) {
     const carga = cargas[index];
     
     // Actualizar pedido a COMPLETADO
-    updatePedidoEstado(carga.pedidoId, ESTADOS_PEDIDO.COMPLETADO);
+    updatePedidoEstado(carga.pedido, ESTADOS_PEDIDO.COMPLETADO);
     
     // Actualizar pallets a DESPACHADO y liberar contenedores
-    const pedido = getPedidoById(carga.pedidoId);
+    const pedido = getPedidoById(carga.pedido);
     if (pedido) {
       pedido.pallets.forEach(palletId => {
         const pallet = updatePalletEstado(palletId, ESTADOS_PALLET.DESPACHADO);
-        if (pallet && pallet.contenedorId) {
-          updateContenedorEstado(pallet.contenedorId, ESTADOS_CONTENEDOR.LIBRE);
+        if (pallet && pallet.contenedor) {
+          updateContenedorEstado(pallet.contenedor, ESTADOS_CONTENEDOR.LIBRE);
         }
       });
     }

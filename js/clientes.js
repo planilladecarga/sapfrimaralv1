@@ -1,5 +1,5 @@
 // Modelo de datos: Clientes
-// { id: string, nombre: string }
+// { id: number, nombre: string }
 
 const STORAGE_KEY = 'wms_clientes';
 
@@ -13,20 +13,20 @@ export function saveClientes(clientes) {
 }
 
 export function getClienteById(id) {
-  return getClientes().find(c => c.id === id);
+  return getClientes().find(c => c.id === parseInt(id));
 }
 
 export function getClienteByNombre(nombre) {
   return getClientes().find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
 }
 
-export function addCliente(nombre) {
+export function addCliente(id, nombre) {
   const clientes = getClientes();
-  let cliente = getClienteByNombre(nombre);
+  let cliente = getClienteById(id);
   
   if (!cliente) {
     cliente = {
-      id: 'CLI-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      id: parseInt(id),
       nombre: nombre.trim()
     };
     clientes.push(cliente);

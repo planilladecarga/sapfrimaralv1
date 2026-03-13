@@ -1,5 +1,5 @@
 // Modelo de datos: Pallets (Stock)
-// { id: string, clienteId: string, producto: string, lote: string, contenedorId: string, kilos: number, estado: string }
+// { id: string, cliente: number, producto: string, lote: string, contenedor: string, kilos: number, estado: string }
 
 import { getClienteById } from './clientes.js';
 import { getContenedorById, updateContenedorEstado, ESTADOS_CONTENEDOR } from './contenedores.js';
@@ -22,15 +22,15 @@ export function savePallets(pallets) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(pallets));
 }
 
-export function addPallet(clienteId, producto, lote, contenedorId, kilos) {
+export function addPallet(id, clienteId, producto, lote, contenedorId, kilos) {
   const pallets = getPallets();
   
   const pallet = {
-    id: 'PAL-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
-    clienteId,
-    producto,
-    lote,
-    contenedorId,
+    id: id,
+    cliente: parseInt(clienteId),
+    producto: producto,
+    lote: lote,
+    contenedor: contenedorId,
     kilos: parseFloat(kilos),
     estado: ESTADOS_PALLET.EN_CAMARA
   };
@@ -47,11 +47,11 @@ export function addPallet(clienteId, producto, lote, contenedorId, kilos) {
 }
 
 export function getPalletsByCliente(clienteId) {
-  return getPallets().filter(p => p.clienteId === clienteId);
+  return getPallets().filter(p => p.cliente === parseInt(clienteId));
 }
 
 export function getPalletsByContenedor(contenedorId) {
-  return getPallets().filter(p => p.contenedorId === contenedorId);
+  return getPallets().filter(p => p.contenedor === contenedorId);
 }
 
 export function getPalletById(id) {

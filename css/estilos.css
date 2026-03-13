@@ -1,0 +1,25 @@
+/* Estilos personalizados adicionales a Tailwind */
+.camara-grid {
+  display: grid;
+  grid-template-columns: repeat(23, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.posicion-libre {
+  background-color: #22c55e; /* green-500 */
+  color: white;
+}
+
+.posicion-ocupado {
+  background-color: #f97316; /* orange-500 */
+  color: white;
+}
+
+.posicion-reservado {
+  background-color: #facc15; /* yellow-400 */
+  color: #1f2937; /* gray-800 */
+}
+
+.nav-btn.active {
+  background-color: #1e3a8a; /* blue-900 */
+}

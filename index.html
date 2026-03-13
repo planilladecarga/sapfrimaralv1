@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS Cámara Frigorífica</title>
     <link rel="stylesheet" href="/src/index.css" />
+    <link rel="stylesheet" href="/css/estilos.css" />
   </head>
   <body class="bg-gray-100 text-gray-800 font-sans">
     <div id="app-container" class="min-h-screen flex flex-col">
@@ -15,8 +16,8 @@
             <div class="flex items-center">
               <span class="font-bold text-xl">WMS Frigorífico</span>
             </div>
-            <div class="flex space-x-4">
-              <button data-view="dashboard" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 bg-blue-900">Dashboard</button>
+            <div class="flex space-x-2 overflow-x-auto">
+              <button data-view="dashboard" class="nav-btn active px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Dashboard</button>
               <button data-view="importar" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Importar Excel</button>
               <button data-view="camara" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Mapa Cámara</button>
               <button data-view="pedidos" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Pedidos</button>
@@ -33,7 +34,6 @@
       </main>
     </div>
     
-    <!-- Include XLSX library from node_modules or CDN. Since it's in package.json, we can import it in JS -->
     <script type="module" src="/js/app.js"></script>
   </body>
 </html>

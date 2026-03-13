@@ -1,7 +1,7 @@
 import { initContenedoresCamara } from './contenedores.js';
 import { procesarExcel } from './importadorExcel.js';
 import { renderCamara } from './camara.js';
-import { resetSistema } from './admin.js';
+import { renderAdmin } from './admin.js';
 import { getClientes } from './clientes.js';
 import { getStockEnCamara, getPallets, ESTADOS_PALLET } from './stock.js';
 import { addPedido, getPedidos, ESTADOS_PEDIDO } from './pedidos.js';
@@ -20,8 +20,8 @@ function setupNavigation() {
   navButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
       // Actualizar estilo activo
-      navButtons.forEach(b => b.classList.remove('bg-blue-900'));
-      e.target.classList.add('bg-blue-900');
+      navButtons.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
       
       const view = e.target.getAttribute('data-view');
       loadView(view);
@@ -93,7 +93,7 @@ function renderImportar(container) {
     <h2 class="text-2xl font-bold mb-6 text-gray-800">Importar Stock desde Excel</h2>
     <div class="bg-white p-8 rounded-lg shadow max-w-2xl">
       <div class="mb-6">
-        <p class="text-gray-600 mb-4">El archivo Excel debe tener el formato especificado. Las filas que comiencen con "Cliente: [Nombre]" definirán el cliente para las filas siguientes.</p>
+        <p class="text-gray-600 mb-4">El archivo Excel debe tener el formato especificado. Las filas que comiencen con "Cliente: [ID] [Nombre]" definirán el cliente para las filas siguientes.</p>
         <div class="border-2 border-dashed border-gray-300 rounded-lg p-10 text-center hover:bg-gray-50 transition-colors">
           <input type="file" id="excel-file" accept=".xlsx, .xls" class="hidden" />
           <label for="excel-file" class="cursor-pointer flex flex-col items-center">
@@ -180,7 +180,7 @@ function renderPedidos(container) {
         <label class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Cliente</label>
         <select id="select-cliente" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
           <option value="">-- Seleccione un cliente --</option>
-          ${clientes.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')}
+          ${clientes.map(c => `<option value="${c.id}">${c.id} - ${c.nombre}</option>`).join('')}
         </select>
       </div>
       
@@ -215,11 +215,11 @@ function renderPedidos(container) {
     html += `<tr><td colspan="4" class="px-5 py-5 border-b border-gray-200 bg-white text-sm text-center text-gray-500">No hay pedidos registrados</td></tr>`;
   } else {
     pedidos.forEach(p => {
-      const cliente = clientes.find(c => c.id === p.clienteId);
+      const cliente = clientes.find(c => c.id === p.cliente);
       const nombreCliente = cliente ? cliente.nombre : 'Desconocido';
       
       let badgeClass = 'bg-gray-200 text-gray-800';
-      if (p.estado === ESTADOS_PEDIDO.PENDIENTE) badgeClass = 'bg-yellow-200 text-yellow-800';
+      if (p.estado === ESTADOS_PEDIDO.CREADO) badgeClass = 'bg-yellow-200 text-yellow-800';
       if (p.estado === ESTADOS_PEDIDO.EN_PREPARACION) badgeClass = 'bg-blue-200 text-blue-800';
       if (p.estado === ESTADOS_PEDIDO.COMPLETADO) badgeClass = 'bg-green-200 text-green-800';
       
@@ -272,7 +272,7 @@ function renderPedidos(container) {
     }
     
     // Filtrar pallets del cliente que estén en cámara
-    const palletsCliente = stock.filter(p => p.clienteId === clienteId);
+    const palletsCliente = stock.filter(p => p.cliente === parseInt(clienteId));
     
     if (palletsCliente.length === 0) {
       listaPallets.innerHTML = '<p class="text-sm text-gray-500 p-2">Este cliente no tiene pallets disponibles en cámara.</p>';
@@ -281,7 +281,7 @@ function renderPedidos(container) {
       listaPallets.innerHTML = palletsCliente.map(p => `
         <label class="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
           <input type="checkbox" class="pallet-checkbox form-checkbox h-4 w-4 text-blue-600" value="${p.id}">
-          <span class="ml-2 text-sm text-gray-700">Prod: <b>${p.producto}</b> | Lote: ${p.lote} | Kilos: ${p.kilos} | Pos: ${p.contenedorId}</span>
+          <span class="ml-2 text-sm text-gray-700">ID: <b>${p.id}</b> | Prod: <b>${p.producto}</b> | Lote: ${p.lote} | Kilos: ${p.kilos} | Pos: ${p.contenedor}</span>
         </label>
       `).join('');
       
@@ -311,7 +311,7 @@ function renderPedidos(container) {
 }
 
 function renderCargas(container) {
-  const pedidos = getPedidos().filter(p => p.estado === ESTADOS_PEDIDO.PENDIENTE);
+  const pedidos = getPedidos().filter(p => p.estado === ESTADOS_PEDIDO.CREADO);
   const cargas = getCargas();
   const clientes = getClientes();
   
@@ -328,11 +328,11 @@ function renderCargas(container) {
       <h3 class="text-lg font-bold mb-4 border-b pb-2">Preparar Nueva Carga</h3>
       
       <div class="mb-4">
-        <label class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Pedido Pendiente</label>
+        <label class="block text-gray-700 text-sm font-bold mb-2">Seleccionar Pedido Creado</label>
         <select id="select-pedido" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
           <option value="">-- Seleccione un pedido --</option>
           ${pedidos.map(p => {
-            const cliente = clientes.find(c => c.id === p.clienteId);
+            const cliente = clientes.find(c => c.id === p.cliente);
             return `<option value="${p.id}">Pedido ${p.id} - ${cliente ? cliente.nombre : ''} (${p.pallets.length} pallets)</option>`;
           }).join('')}
         </select>
@@ -371,10 +371,10 @@ function renderCargas(container) {
       html += `
         <tr>
           <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap font-mono">${c.id}</p></td>
-          <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap font-mono">${c.pedidoId}</p></td>
+          <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><p class="text-gray-900 whitespace-no-wrap font-mono">${c.pedido}</p></td>
           <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm"><span class="relative inline-block px-3 py-1 font-semibold leading-tight rounded-full ${badgeClass}"><span class="relative text-xs">${c.estado}</span></span></td>
           <td class="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-            ${isPreparando ? `<button class="btn-finalizar-carga bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded" data-id="${c.id}">Finalizar</button>` : '-'}
+            ${isPreparando ? `<button class="btn-finalizar-carga bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded" data-id="${c.id}">Despachar</button>` : '-'}
           </td>
         </tr>
       `;
@@ -415,9 +415,7 @@ function renderCargas(container) {
   btnIniciar.addEventListener('click', () => {
     const pedidoId = selectPedido.value;
     if (pedidoId) {
-      // Por simplicidad, no estamos seleccionando contenedores específicos para la carga aquí,
-      // pero se podrían agregar en una versión más avanzada.
-      addCarga(pedidoId, []);
+      addCarga(pedidoId);
       renderCargas(container); // Recargar vista
     }
   });
@@ -432,21 +430,4 @@ function renderCargas(container) {
       }
     });
   });
-}
-
-function renderAdmin(container) {
-  container.innerHTML = `
-    <h2 class="text-2xl font-bold mb-6 text-gray-800">Panel de Administración</h2>
-    <div class="bg-white p-6 rounded-lg shadow border border-red-200">
-      <h3 class="text-lg font-bold text-red-600 mb-2">Zona de Peligro</h3>
-      <p class="text-gray-600 mb-4">Las acciones aquí son irreversibles y afectarán a todos los datos del sistema.</p>
-      
-      <button id="btn-reset" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-        Resetear Sistema Completo
-      </button>
-    </div>
-  `;
-  
-  document.getElementById('btn-reset').addEventListener('click', resetSistema);
 }

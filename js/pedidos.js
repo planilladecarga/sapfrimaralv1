@@ -1,12 +1,12 @@
 // Modelo de datos: Pedidos
-// { id: string, clienteId: string, pallets: string[], estado: string }
+// { id: string, cliente: number, pallets: string[], estado: string }
 
 import { getPalletById, updatePalletEstado, ESTADOS_PALLET } from './stock.js';
 
 const STORAGE_KEY = 'wms_pedidos';
 
 export const ESTADOS_PEDIDO = {
-  PENDIENTE: 'PENDIENTE',
+  CREADO: 'CREADO',
   EN_PREPARACION: 'EN_PREPARACION',
   COMPLETADO: 'COMPLETADO'
 };
@@ -24,10 +24,10 @@ export function addPedido(clienteId, palletIds) {
   const pedidos = getPedidos();
   
   const pedido = {
-    id: 'PED-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-    clienteId,
+    id: 'PED-' + String(pedidos.length + 1).padStart(3, '0'),
+    cliente: parseInt(clienteId),
     pallets: palletIds,
-    estado: ESTADOS_PEDIDO.PENDIENTE
+    estado: ESTADOS_PEDIDO.CREADO
   };
   
   pedidos.push(pedido);
