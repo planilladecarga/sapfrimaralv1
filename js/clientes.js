@@ -1,41 +1,22 @@
-// Modelo de datos: Clientes
-// { id: number, nombre: string }
+import { guardarDatos, obtenerDatos } from './storage.js';
 
-const STORAGE_KEY = 'wms_clientes';
+const KEY = 'clientes';
 
-export function getClientes() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+export function listarClientes() {
+  return obtenerDatos(KEY);
 }
 
-export function saveClientes(clientes) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(clientes));
-}
+export function crearCliente(nombre) {
+  const limpio = String(nombre || '').trim();
+  if (!limpio) throw new Error('Nombre de cliente requerido.');
 
-export function getClienteById(id) {
-  return getClientes().find(c => c.id === parseInt(id));
-}
+  const clientes = listarClientes();
+  const existente = clientes.find((c) => c.nombre.toUpperCase() === limpio.toUpperCase());
+  if (existente) return existente;
 
-export function getClienteByNombre(nombre) {
-  return getClientes().find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
-}
-
-export function addCliente(id, nombre) {
-  const clientes = getClientes();
-  let cliente = getClienteById(id);
-  
-  if (!cliente) {
-    cliente = {
-      id: parseInt(id),
-      nombre: nombre.trim()
-    };
-    clientes.push(cliente);
-    saveClientes(clientes);
-  }
-  
-  return cliente;
-}
-
-export function resetClientes() {
-  localStorage.removeItem(STORAGE_KEY);
+  const nextId = clientes.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0) + 1;
+  const nuevo = { id: nextId, nombre: limpio };
+  clientes.push(nuevo);
+  guardarDatos(KEY, clientes);
+  return nuevo;
 }
