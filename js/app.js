@@ -318,10 +318,17 @@ function renderCargas(container) {
   let html = `
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-2xl font-bold text-gray-800">Preparación de Cargas</h2>
-      <button id="btn-nueva-carga" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
-        + Preparar Carga
-      </button>
+      <div>
+        <button id="btn-san-jacinto" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2">
+          Preparar Carga San Jacinto
+        </button>
+        <button id="btn-nueva-carga" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+          + Preparar Carga
+        </button>
+      </div>
     </div>
+    
+    <div id="resultadoCarga" class="mb-6 bg-white p-4 rounded-lg shadow empty:hidden"></div>
     
     <!-- Formulario Nueva Carga -->
     <div id="form-nueva-carga" class="bg-white p-6 rounded-lg shadow mb-8 hidden">
@@ -395,6 +402,11 @@ function renderCargas(container) {
   const btnCancelar = document.getElementById('btn-cancelar-carga');
   const btnIniciar = document.getElementById('btn-iniciar-carga');
   const selectPedido = document.getElementById('select-pedido');
+  const btnSanJacinto = document.getElementById('btn-san-jacinto');
+  
+  if (btnSanJacinto) {
+    btnSanJacinto.addEventListener('click', generarCargaSanJacinto);
+  }
   
   btnNueva.addEventListener('click', () => {
     formNueva.classList.remove('hidden');
@@ -430,4 +442,65 @@ function renderCargas(container) {
       }
     });
   });
+}
+
+// FUNCIÓN ORIGINAL "CARGA SAN JACINTO" ADAPTADA AL NUEVO MODELO
+function generarCargaSanJacinto(){
+  // Adaptado para usar la key wms_pallets y wms_clientes del nuevo sistema
+  let pallets = JSON.parse(localStorage.getItem("wms_pallets")) || [];
+  let clientes = JSON.parse(localStorage.getItem("wms_clientes")) || [];
+
+  let carga = [];
+
+  pallets.forEach(p => {
+    const cliente = clientes.find(c => c.id === p.cliente);
+    const nombreCliente = cliente ? cliente.nombre : '';
+
+    if(
+      nombreCliente.toUpperCase().includes("SAN JACINTO") &&
+      p.estado === "EN_CAMARA"
+    ){
+      carga.push(p);
+      p.estado = "EN_CARGA";
+    }
+  });
+
+  localStorage.setItem("wms_pallets", JSON.stringify(pallets));
+
+  mostrarPlanillaSanJacinto(carga);
+}
+
+function mostrarPlanillaSanJacinto(lista){
+  let contenedor = document.getElementById("resultadoCarga");
+  if (!contenedor) return;
+
+  let html = "";
+
+  html += "<h3 class='text-lg font-bold mb-4'>Carga San Jacinto</h3>";
+
+  html += "<table border='1' class='w-full text-left border-collapse border border-gray-300'>";
+  html += "<tr class='bg-gray-100'>";
+  html += "<th class='border border-gray-300 px-4 py-2'>Pallet</th>";
+  html += "<th class='border border-gray-300 px-4 py-2'>Producto</th>";
+  html += "<th class='border border-gray-300 px-4 py-2'>Lote</th>";
+  html += "<th class='border border-gray-300 px-4 py-2'>Kilos</th>";
+  html += "</tr>";
+
+  if (lista.length === 0) {
+    html += "<tr><td colspan='4' class='border border-gray-300 px-4 py-2 text-center text-gray-500'>No se encontraron pallets en cámara para San Jacinto</td></tr>";
+  } else {
+    lista.forEach(p => {
+      html += "<tr>";
+      html += "<td class='border border-gray-300 px-4 py-2'>" + p.id + "</td>";
+      html += "<td class='border border-gray-300 px-4 py-2'>" + p.producto + "</td>";
+      html += "<td class='border border-gray-300 px-4 py-2'>" + p.lote + "</td>";
+      html += "<td class='border border-gray-300 px-4 py-2'>" + p.kilos + "</td>";
+      html += "</tr>";
+    });
+  }
+
+  html += "</table>";
+
+  contenedor.innerHTML = html;
+  contenedor.classList.remove('hidden');
 }
