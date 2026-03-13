@@ -22,11 +22,24 @@ export function savePedidos(pedidos) {
 
 export function addPedido(clienteId, palletIds) {
   const pedidos = getPedidos();
+  const clienteIdNum = parseInt(clienteId);
+  const uniquePalletIds = [...new Set(palletIds)];
+
+  const palletsValidos = uniquePalletIds.map(id => getPalletById(id));
+  const palletsInvalidos = palletsValidos.some(p => !p || p.cliente !== clienteIdNum || p.estado !== ESTADOS_PALLET.EN_CAMARA);
+  if (palletsInvalidos) {
+    throw new Error('Uno o más pallets seleccionados ya no están disponibles para crear el pedido.');
+  }
+
+  const nextNumber = pedidos.reduce((max, p) => {
+    const n = parseInt(String(p.id).replace('PED-', ''), 10);
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0) + 1;
   
   const pedido = {
-    id: 'PED-' + String(pedidos.length + 1).padStart(3, '0'),
-    cliente: parseInt(clienteId),
-    pallets: palletIds,
+    id: 'PED-' + String(nextNumber).padStart(3, '0'),
+    cliente: clienteIdNum,
+    pallets: uniquePalletIds,
     estado: ESTADOS_PEDIDO.CREADO
   };
   
@@ -34,7 +47,7 @@ export function addPedido(clienteId, palletIds) {
   savePedidos(pedidos);
   
   // Cambiar estado de pallets a RESERVADO
-  palletIds.forEach(id => {
+  uniquePalletIds.forEach(id => {
     updatePalletEstado(id, ESTADOS_PALLET.RESERVADO);
   });
   
