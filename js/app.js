@@ -83,9 +83,13 @@ function renderVista(v) {
     const opcionesP = listarPallets().filter((p) => p.estado === 'EN_CAMARA').map((p) => `<label><input type="checkbox" value="${p.id}"/> ${p.id} - ${p.cliente} - ${p.producto}</label>`).join('<br>');
     app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><select id="ped-cli"><option value="">Cliente</option>${clientes}</select><button id="ped-add">Crear pedido</button></div><div class="card">${opcionesP || '<small class="muted">Sin pallets EN_CAMARA</small>'}</div><table><tr><th>ID</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((p) => `<tr><td>${p.id}</td><td>${p.cliente}</td><td>${p.pallets.join(', ')}</td><td>${p.estado}</td></tr>`).join('')}</table></section>`;
     document.getElementById('ped-add').onclick = () => {
-      const ids = [...app.querySelectorAll('input[type="checkbox"]:checked')].map((x) => Number(x.value));
-      crearPedido(document.getElementById('ped-cli').value, ids);
-      renderVista('pedidos');
+      try {
+        const ids = [...app.querySelectorAll('input[type="checkbox"]:checked')].map((x) => Number(x.value));
+        crearPedido(document.getElementById('ped-cli').value, ids);
+        renderVista('pedidos');
+      } catch (error) {
+        alert(error.message);
+      }
     };
   }
 
@@ -93,11 +97,15 @@ function renderVista(v) {
     const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
     app.innerHTML = `<section class="card"><h2>Cargas</h2><div class="row"><select id="car-cli"><option value="">Cliente</option>${clientes}</select><button id="car-add">Crear carga desde pedido ABIERTO</button><button onclick="generarCargaSanJacinto()">CARGA SAN JACINTO</button></div><div id="resultadoCarga"></div><table><tr><th>ID</th><th>Cliente</th><th>Pallets</th><th>Fecha</th></tr>${listarCargas().map((c) => `<tr><td>${c.id}</td><td>${c.cliente}</td><td>${c.pallets.join(', ')}</td><td>${c.fecha}</td></tr>`).join('')}</table></section>`;
     document.getElementById('car-add').onclick = () => {
-      const carga = crearCarga(document.getElementById('car-cli').value);
-      const pallets = listarPallets().filter((p) => carga.pallets.includes(Number(p.id)));
-      const resumen = generarPlanillaCarga(pallets);
-      alert(`Carga #${carga.id} creada. Pallets: ${resumen.cantidadPallets}. Kilos: ${resumen.totalKilos}.`);
-      renderVista('cargas');
+      try {
+        const carga = crearCarga(document.getElementById('car-cli').value);
+        const pallets = listarPallets().filter((p) => carga.pallets.includes(Number(p.id)));
+        const resumen = generarPlanillaCarga(pallets);
+        alert(`Carga #${carga.id} creada. Pallets: ${resumen.cantidadPallets}. Kilos: ${resumen.totalKilos}.`);
+        renderVista('cargas');
+      } catch (error) {
+        alert(error.message);
+      }
     };
   }
 

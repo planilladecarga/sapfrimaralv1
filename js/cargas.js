@@ -9,7 +9,12 @@ export function listarCargas() {
 }
 
 export function crearCarga(cliente) {
-  const pedidos = listarPedidos().filter((p) => p.cliente === cliente && p.estado === 'ABIERTO');
+  const clienteNormalizado = String(cliente || '').trim().toUpperCase();
+  if (!clienteNormalizado) throw new Error('Debe seleccionar un cliente para crear la carga.');
+
+  const pedidos = listarPedidos().filter((p) =>
+    String(p.cliente || '').trim().toUpperCase() === clienteNormalizado && p.estado === 'ABIERTO');
+
   if (!pedidos.length) throw new Error('No hay pedido ABIERTO para el cliente.');
 
   const pedido = pedidos[0];
