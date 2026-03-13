@@ -21,9 +21,9 @@ function setupNavigation() {
     btn.addEventListener('click', (e) => {
       // Actualizar estilo activo
       navButtons.forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
+      e.currentTarget.classList.add('active');
       
-      const view = e.target.getAttribute('data-view');
+      const view = e.currentTarget.getAttribute('data-view');
       loadView(view);
     });
   });
@@ -304,8 +304,12 @@ function renderPedidos(container) {
     const palletIds = Array.from(checkboxes).map(cb => cb.value);
     
     if (clienteId && palletIds.length > 0) {
-      addPedido(clienteId, palletIds);
-      renderPedidos(container); // Recargar vista
+      try {
+        addPedido(clienteId, palletIds);
+        renderPedidos(container); // Recargar vista
+      } catch (error) {
+        alert(error.message);
+      }
     }
   });
 }
@@ -427,8 +431,12 @@ function renderCargas(container) {
   btnIniciar.addEventListener('click', () => {
     const pedidoId = selectPedido.value;
     if (pedidoId) {
-      addCarga(pedidoId);
-      renderCargas(container); // Recargar vista
+      try {
+        addCarga(pedidoId);
+        renderCargas(container); // Recargar vista
+      } catch (error) {
+        alert(error.message);
+      }
     }
   });
   
