@@ -23,9 +23,28 @@ export function saveCargas(cargas) {
 
 export function addCarga(pedidoId) {
   const cargas = getCargas();
+  const pedido = getPedidoById(pedidoId);
+
+  if (!pedido) {
+    throw new Error('El pedido seleccionado no existe.');
+  }
+
+  if (pedido.estado !== ESTADOS_PEDIDO.CREADO) {
+    throw new Error('El pedido ya no está disponible para preparar una nueva carga.');
+  }
+
+  const cargaActiva = cargas.find(c => c.pedido === pedidoId && c.estado === ESTADOS_CARGA.PREPARANDO);
+  if (cargaActiva) {
+    throw new Error('Ya existe una carga en preparación para este pedido.');
+  }
+
+  const nextNumber = cargas.reduce((max, c) => {
+    const n = parseInt(String(c.id).replace('CAR-', ''), 10);
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0) + 1;
   
   const carga = {
-    id: 'CAR-' + String(cargas.length + 1).padStart(3, '0'),
+    id: 'CAR-' + String(nextNumber).padStart(3, '0'),
     pedido: pedidoId,
     estado: ESTADOS_CARGA.PREPARANDO
   };
@@ -37,12 +56,9 @@ export function addCarga(pedidoId) {
   updatePedidoEstado(pedidoId, ESTADOS_PEDIDO.EN_PREPARACION);
   
   // Actualizar pallets a EN_CARGA
-  const pedido = getPedidoById(pedidoId);
-  if (pedido) {
-    pedido.pallets.forEach(palletId => {
-      updatePalletEstado(palletId, ESTADOS_PALLET.EN_CARGA);
-    });
-  }
+  pedido.pallets.forEach(palletId => {
+    updatePalletEstado(palletId, ESTADOS_PALLET.EN_CARGA);
+  });
   
   return carga;
 }
