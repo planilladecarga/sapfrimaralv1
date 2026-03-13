@@ -3,6 +3,24 @@ import { crearCliente } from './clientes.js';
 import { crearPallet, listarPallets } from './pallets.js';
 import { crearContenedor, generarContenedoresBase } from './contenedores.js';
 
+function obtenerNombreClienteDesdeFila(row) {
+  const primera = String(row[0] || '').trim();
+  const resto = row.slice(1).map((c) => String(c || '').trim()).filter(Boolean).join(' ');
+
+  // Casos soportados:
+  // 1) "Cliente: 435 ANTIC S.A."
+  // 2) "Cliente:" + ["435", "ANTIC S.A."] en celdas siguientes
+  // 3) "Cliente" sin ":" con datos en la misma o siguientes celdas
+  const combinado = `${primera} ${resto}`.trim();
+  const sinLabel = combinado.replace(/^cliente\s*:?\s*/i, '').trim();
+
+  if (!sinLabel) return '';
+
+  // Si empieza con código numérico, lo removemos para guardar solo nombre
+  const match = sinLabel.match(/^\d+\s+(.+)$/);
+  return (match ? match[1] : sinLabel).trim();
+}
+
 export function importarExcelStock(file) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -18,16 +36,20 @@ export function importarExcelStock(file) {
 
         rows.forEach((r) => {
           const c0 = String(r[0] || '').trim();
-          if (!c0) return;
+          const esFilaCliente = /^cliente\s*:?/i.test(c0);
+          if (!c0 && !esFilaCliente) return;
 
-          if (/^cliente:/i.test(c0)) {
-            const texto = c0.replace(/^cliente:/i, '').trim();
-            const partes = texto.match(/^(\d+)?\s*(.*)$/);
-            clienteActual = crearCliente((partes?.[2] || texto).trim()).nombre;
+          if (esFilaCliente) {
+            const nombreCliente = obtenerNombreClienteDesdeFila(r);
+            if (!nombreCliente) {
+              clienteActual = null;
+              return;
+            }
+            clienteActual = crearCliente(nombreCliente).nombre;
             return;
           }
 
-          if (!clienteActual || /^id|pallet$/i.test(c0)) return;
+          if (!clienteActual || /^(id|pallet)$/i.test(c0)) return;
           const [id, producto, lote, contenedor, kilos] = r;
           if (!id || !producto || !contenedor) return;
 
