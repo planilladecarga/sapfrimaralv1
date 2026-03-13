@@ -1,62 +1,40 @@
-// Modelo de datos: Pedidos
-// { id: string, cliente: number, pallets: string[], estado: string }
+import { guardarDatos, obtenerDatos } from './storage.js';
+import { listarPallets, guardarPallets, ESTADOS_PALLET } from './pallets.js';
 
-import { getPalletById, updatePalletEstado, ESTADOS_PALLET } from './stock.js';
+const KEY = 'pedidos';
 
-const STORAGE_KEY = 'wms_pedidos';
-
-export const ESTADOS_PEDIDO = {
-  CREADO: 'CREADO',
-  EN_PREPARACION: 'EN_PREPARACION',
-  COMPLETADO: 'COMPLETADO'
-};
-
-export function getPedidos() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+export function listarPedidos() {
+  return obtenerDatos(KEY);
 }
 
-export function savePedidos(pedidos) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(pedidos));
-}
+export function crearPedido(cliente, palletIds = []) {
+  const pallets = listarPallets();
+  const ids = [...new Set(palletIds.map((v) => Number(v)))];
+  const seleccionados = pallets.filter((p) => ids.includes(Number(p.id)));
 
-export function addPedido(clienteId, palletIds) {
-  const pedidos = getPedidos();
-  
-  const pedido = {
-    id: 'PED-' + String(pedidos.length + 1).padStart(3, '0'),
-    cliente: parseInt(clienteId),
-    pallets: palletIds,
-    estado: ESTADOS_PEDIDO.CREADO
-  };
-  
+  if (!seleccionados.length) throw new Error('Debe seleccionar pallets.');
+  const invalidos = seleccionados.some((p) => p.estado !== ESTADOS_PALLET.EN_CAMARA || p.cliente !== cliente);
+  if (invalidos || seleccionados.length !== ids.length) throw new Error('Hay pallets no disponibles para reserva.');
+
+  const pedidos = listarPedidos();
+  const nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
+  const pedido = { id: nextId, cliente, pallets: ids, estado: 'ABIERTO' };
+
   pedidos.push(pedido);
-  savePedidos(pedidos);
-  
-  // Cambiar estado de pallets a RESERVADO
-  palletIds.forEach(id => {
-    updatePalletEstado(id, ESTADOS_PALLET.RESERVADO);
-  });
-  
+  guardarDatos(KEY, pedidos);
+
+  const actualizados = pallets.map((p) => (ids.includes(Number(p.id)) ? { ...p, estado: ESTADOS_PALLET.RESERVADO } : p));
+  guardarPallets(actualizados);
+
   return pedido;
 }
 
-export function getPedidoById(id) {
-  return getPedidos().find(p => p.id === id);
-}
-
-export function updatePedidoEstado(id, estado) {
-  const pedidos = getPedidos();
-  const index = pedidos.findIndex(p => p.id === id);
-  
-  if (index !== -1) {
-    pedidos[index].estado = estado;
-    savePedidos(pedidos);
-    return pedidos[index];
-  }
-  return null;
-}
-
-export function resetPedidos() {
-  localStorage.removeItem(STORAGE_KEY);
+export function reservarPallet(palletId) {
+  const pallets = listarPallets();
+  const idx = pallets.findIndex((p) => Number(p.id) === Number(palletId));
+  if (idx < 0) throw new Error('Pallet no existe.');
+  if (pallets[idx].estado !== ESTADOS_PALLET.EN_CAMARA) throw new Error('Pallet no disponible.');
+  pallets[idx].estado = ESTADOS_PALLET.RESERVADO;
+  guardarPallets(pallets);
+  return pallets[idx];
 }
