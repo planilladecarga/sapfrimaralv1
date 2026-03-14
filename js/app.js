@@ -9,6 +9,7 @@ import { loginAdmin, reiniciarSistema } from './admin.js';
 
 const app = document.getElementById('app');
 const tabs = document.getElementById('tabs');
+const APP_VERSION = String(import.meta.env.VITE_APP_VERSION || 'local').slice(0, 7);
 
 const vistas = [
   ['dashboard', 'Dashboard'],
@@ -27,7 +28,8 @@ const estadoPedidosVista = {
 };
 
 function renderTabs(activa) {
-  tabs.innerHTML = vistas.map(([k, txt]) => `<button data-view="${k}" class="${activa === k ? 'active' : ''}">${txt}</button>`).join('');
+  const botones = vistas.map(([k, txt]) => `<button data-view="${k}" class="${activa === k ? 'active' : ''}">${txt}</button>`).join('');
+  tabs.innerHTML = `${botones}<span class="version-badge">Versión: ${APP_VERSION}</span>`;
   tabs.querySelectorAll('button').forEach((b) => b.addEventListener('click', (e) => renderVista(e.currentTarget.dataset.view)));
 }
 
@@ -200,24 +202,6 @@ function renderVista(v) {
         renderVista('pedidos');
       } catch (err) {
         pedMsg.textContent = err?.message || 'No se pudo crear el pedido.';
-      }
-    };
-
-    document.getElementById('ped-add').onclick = () => {
-      try {
-        const despacho = document.getElementById('ped-desp').value;
-        const cliente = document.getElementById('ped-cli').value;
-        const seleccion = [...app.querySelectorAll('input[type="checkbox"][data-pallet-id]:checked')]
-          .map((check) => {
-            const id = check.getAttribute('data-pallet-id');
-            const cajasInput = app.querySelector(`input[data-cajas-id="${id}"]`);
-            const cajas = Number(cajasInput?.value);
-            return { id, cajas: Number.isFinite(cajas) && cajas > 0 ? cajas : null };
-          });
-        crearPedido(cliente, seleccion, despacho);
-        renderVista('pedidos');
-      } catch (error) {
-        alert(error.message);
       }
     };
   }
