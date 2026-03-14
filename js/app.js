@@ -21,20 +21,25 @@ const vistas = [
   ['admin', 'Admin'],
 ];
 
+const estadoPedidosVista = {
+  cliente: '',
+  contenedor: '',
+};
+
 function renderTabs(activa) {
   tabs.innerHTML = vistas.map(([k, txt]) => `<button data-view="${k}" class="${activa === k ? 'active' : ''}">${txt}</button>`).join('');
   tabs.querySelectorAll('button').forEach((b) => b.addEventListener('click', (e) => renderVista(e.currentTarget.dataset.view)));
 }
 
 function rowsPallets(lista) {
-  return lista.map((p) => `<tr><td>${p.id}</td><td>${p.cliente}</td><td>${p.producto}</td><td>${p.lote}</td><td>${p.contenedor}</td><td>${p.kilos}</td><td>${p.estado}</td></tr>`).join('');
+  return lista.map((p) => `<tr><td>${p.id}</td><td>${p.cliente}</td><td>${p.producto}</td><td>${p.lote || ''}</td><td>${p.contenedor}</td><td>${p.kilos}</td><td>${p.cajas ?? ''}</td><td>${p.estado}</td></tr>`).join('');
 }
 
 function mostrarPlanillaSanJacinto(lista) {
   const contenedor = document.getElementById('resultadoCarga');
   let html = '<h3>Carga San Jacinto</h3><table border="1"><tr><th>Pallet</th><th>Producto</th><th>Lote</th><th>Kilos</th></tr>';
   lista.forEach((p) => {
-    html += `<tr><td>${p.id}</td><td>${p.producto}</td><td>${p.lote}</td><td>${p.kilos}</td></tr>`;
+    html += `<tr><td>${p.id}</td><td>${p.producto}</td><td>${p.lote || ''}</td><td>${p.kilos}</td></tr>`;
   });
   html += '</table>';
   contenedor.innerHTML = html;
@@ -60,15 +65,16 @@ function renderVista(v) {
 
   if (v === 'pallets') {
     const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
-    app.innerHTML = `<section class="card"><h2>Pallets</h2><div class="row"><input id="pa-id" placeholder="ID pallet" type="number"/><select id="pa-cliente"><option value="">Cliente</option>${clientes}</select><input id="pa-prod" placeholder="Producto"/><input id="pa-lote" placeholder="Lote"/><input id="pa-cont" placeholder="Contenedor"/><input id="pa-kilos" type="number" placeholder="Kilos"/><button id="pa-add">Crear pallet</button></div><hr><div class="row"><input id="f-cli" placeholder="Filtrar cliente"/><input id="f-pro" placeholder="Filtrar producto"/><input id="f-lote" placeholder="Filtrar lote"/><button id="pa-fil">Filtrar</button></div><table><tr><th>ID</th><th>Cliente</th><th>Producto</th><th>Lote</th><th>Cont</th><th>Kilos</th><th>Estado</th></tr><tbody id="tb-pallets">${rowsPallets(listarPallets())}</tbody></table></section>`;
+    app.innerHTML = `<section class="card"><h2>Pallets</h2><div class="row"><input id="pa-id" placeholder="ID pallet"/><select id="pa-cliente"><option value="">Cliente</option>${clientes}</select><input id="pa-prod" placeholder="Producto"/><input id="pa-lote" placeholder="Lote"/><input id="pa-cont" placeholder="Contenedor"/><input id="pa-kilos" type="number" step="0.01" placeholder="Kilos"/><input id="pa-cajas" type="number" step="1" placeholder="Cajas"/><button id="pa-add">Crear pallet</button></div><hr><div class="row"><input id="f-cli" placeholder="Filtrar cliente"/><input id="f-pro" placeholder="Filtrar producto"/><input id="f-lote" placeholder="Filtrar lote"/><button id="pa-fil">Filtrar</button></div><table><tr><th>ID</th><th>Cliente</th><th>Producto</th><th>Lote</th><th>Cont</th><th>Kilos</th><th>Cajas</th><th>Estado</th></tr><tbody id="tb-pallets">${rowsPallets(listarPallets())}</tbody></table></section>`;
     document.getElementById('pa-add').onclick = () => {
       crearPallet({
-        id: Number(document.getElementById('pa-id').value),
+        id: document.getElementById('pa-id').value,
         cliente: document.getElementById('pa-cliente').value,
         producto: document.getElementById('pa-prod').value,
         lote: document.getElementById('pa-lote').value,
         contenedor: document.getElementById('pa-cont').value,
         kilos: Number(document.getElementById('pa-kilos').value),
+        cajas: Number(document.getElementById('pa-cajas').value),
       });
       renderVista('pallets');
     };
@@ -135,6 +141,29 @@ function renderVista(v) {
     document.getElementById('ped-add').onclick = () => {
       crearPedido(pedCli.value, selected);
       renderVista('pedidos');
+    };
+
+    document.getElementById('ped-cont').onchange = (e) => {
+      estadoPedidosVista.contenedor = e.target.value;
+      renderVista('pedidos');
+    };
+
+    document.getElementById('ped-add').onclick = () => {
+      try {
+        const despacho = document.getElementById('ped-desp').value;
+        const cliente = document.getElementById('ped-cli').value;
+        const seleccion = [...app.querySelectorAll('input[type="checkbox"][data-pallet-id]:checked')]
+          .map((check) => {
+            const id = check.getAttribute('data-pallet-id');
+            const cajasInput = app.querySelector(`input[data-cajas-id="${id}"]`);
+            const cajas = Number(cajasInput?.value);
+            return { id, cajas: Number.isFinite(cajas) && cajas > 0 ? cajas : null };
+          });
+        crearPedido(cliente, seleccion, despacho);
+        renderVista('pedidos');
+      } catch (error) {
+        alert(error.message);
+      }
     };
   }
 
