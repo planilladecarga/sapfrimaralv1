@@ -27,7 +27,13 @@ export function crearPedido(cliente, palletIds = []) {
 
   const pedidos = listarPedidos();
   const nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
-  const pedido = { id: nextId, cliente, pallets: ids, estado: ESTADOS_PEDIDO.ABIERTO };
+  const pedido = {
+    id: nextId,
+    numeroDespacho: nextId,
+    cliente,
+    pallets: ids,
+    estado: ESTADOS_PEDIDO.ABIERTO,
+  };
 
   pedidos.push(pedido);
   guardarPedidos(pedidos);

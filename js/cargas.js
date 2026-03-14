@@ -22,7 +22,13 @@ export function crearCarga(cliente) {
 
   const cargas = listarCargas();
   const nextId = cargas.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0) + 1;
-  const carga = { id: nextId, cliente, pallets: ids, fecha: new Date().toISOString().slice(0, 10) };
+  const carga = {
+    id: nextId,
+    numeroDespacho: pedido.numeroDespacho ?? pedido.id,
+    cliente,
+    pallets: ids,
+    fecha: new Date().toISOString().slice(0, 10),
+  };
   cargas.push(carga);
   guardarDatos(KEY, cargas);
 
