@@ -85,42 +85,61 @@ function renderVista(v) {
   }
 
   if (v === 'pedidos') {
-    const clientesList = listarClientes();
-    const palletsDisponibles = listarPallets().filter((p) => p.estado === 'EN_CAMARA');
-    const clienteSeleccionado = estadoPedidosVista.cliente;
-    const palletsCliente = clienteSeleccionado
-      ? palletsDisponibles.filter((p) => String(p.cliente).toUpperCase() === String(clienteSeleccionado).toUpperCase())
-      : [];
+    const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
+    app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><select id="ped-cli"><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-add">Crear pedido</button></div><div id="ped-sel" class="card"><small class="muted">Seleccione cliente, contenedor y pallet.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((p) => `<tr><td>${p.id}</td><td>${p.numeroDespacho ?? p.id}</td><td>${p.cliente}</td><td>${p.pallets.join(', ')}</td><td>${p.estado}</td></tr>`).join('')}</table></section>`;
 
-    const contenedoresCliente = [...new Set(palletsCliente.map((p) => p.contenedor).filter(Boolean))].sort();
-    if (estadoPedidosVista.contenedor && !contenedoresCliente.includes(estadoPedidosVista.contenedor)) {
-      estadoPedidosVista.contenedor = '';
-    }
+    const selected = [];
+    const pedCli = document.getElementById('ped-cli');
+    const pedCont = document.getElementById('ped-cont');
+    const pedPal = document.getElementById('ped-pal');
+    const pedSel = document.getElementById('ped-sel');
 
-    const palletsFiltrados = estadoPedidosVista.contenedor
-      ? palletsCliente.filter((p) => p.contenedor === estadoPedidosVista.contenedor)
-      : palletsCliente;
+    const renderSeleccion = () => {
+      if (!selected.length) {
+        pedSel.innerHTML = '<small class="muted">Sin pallets seleccionados para el pedido.</small>';
+        return;
+      }
+      const disponibles = listarPallets();
+      const filas = selected.map((id) => {
+        const p = disponibles.find((x) => Number(x.id) === Number(id));
+        if (!p) return `<li>Pallet ${id}</li>`;
+        return `<li>${p.id} · ${p.contenedor} · ${p.producto} · Lote ${p.lote} · ${p.kilos} kg</li>`;
+      }).join('');
+      pedSel.innerHTML = `<b>Pallets seleccionados:</b><ul>${filas}</ul>`;
+    };
 
-    const opcionesP = palletsFiltrados.map((p) => {
-      const maxCajas = Number(p.cajas) > 0 ? `max="${Number(p.cajas)}"` : '';
-      const hint = Number(p.cajas) > 0 ? ` / Cajas disp.: ${p.cajas}` : '';
-      return `<label class="row"><input type="checkbox" data-pallet-id="${p.id}"/> <span><b>${p.id}</b> · ${p.contenedor} · ${p.producto}${hint}</span><input type="number" min="1" ${maxCajas} step="1" data-cajas-id="${p.id}" placeholder="Cajas (opcional)"/></label>`;
-    }).join('<hr>');
+    const palletsCliente = () => listarPallets().filter((p) => p.estado === 'EN_CAMARA' && p.cliente === pedCli.value);
 
-    app.innerHTML = `<section class="card"><h2>Pedidos (N° despacho)</h2>
-      <div class="row">
-        <input id="ped-desp" placeholder="N° despacho"/>
-        <select id="ped-cli"><option value="">Cliente</option>${clientesList.map((c) => `<option value="${c.nombre}" ${c.nombre === clienteSeleccionado ? 'selected' : ''}>${c.id} · ${c.nombre}</option>`).join('')}</select>
-        <select id="ped-cont"><option value="">Todos los contenedores</option>${contenedoresCliente.map((cont) => `<option value="${cont}" ${cont === estadoPedidosVista.contenedor ? 'selected' : ''}>${cont}</option>`).join('')}</select>
-        <button id="ped-add">Crear pedido</button>
-      </div>
-      <div class="card">${opcionesP || '<small class="muted">Selecciona cliente para ver stock disponible.</small>'}</div>
-      <table><tr><th>Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((p) => `<tr><td>${p.id}</td><td>${p.cliente}</td><td>${p.pallets.join(', ')}</td><td>${p.estado}</td></tr>`).join('')}</table>
-    </section>`;
+    const refreshContenedores = () => {
+      const pallets = palletsCliente();
+      const contenedores = [...new Set(pallets.map((p) => p.contenedor))];
+      pedCont.innerHTML = `<option value="">Contenedor</option>${contenedores.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
+      pedCont.disabled = !contenedores.length;
+      pedPal.innerHTML = '<option value="">Pallet</option>';
+      pedPal.disabled = true;
+      document.getElementById('ped-pallet-add').disabled = true;
+    };
 
-    document.getElementById('ped-cli').onchange = (e) => {
-      estadoPedidosVista.cliente = e.target.value;
-      estadoPedidosVista.contenedor = '';
+    const refreshPallets = () => {
+      const pallets = palletsCliente().filter((p) => p.contenedor === pedCont.value && !selected.includes(Number(p.id)));
+      pedPal.innerHTML = `<option value="">Pallet</option>${pallets.map((p) => `<option value="${p.id}">${p.id} · ${p.producto} · Lote ${p.lote} · ${p.kilos}kg</option>`).join('')}`;
+      pedPal.disabled = !pallets.length;
+      document.getElementById('ped-pallet-add').disabled = !pallets.length;
+    };
+
+    pedCli.addEventListener('change', refreshContenedores);
+    pedCont.addEventListener('change', refreshPallets);
+
+    document.getElementById('ped-pallet-add').onclick = () => {
+      const value = Number(pedPal.value);
+      if (!value) return;
+      selected.push(value);
+      refreshPallets();
+      renderSeleccion();
+    };
+
+    document.getElementById('ped-add').onclick = () => {
+      crearPedido(pedCli.value, selected);
       renderVista('pedidos');
     };
 
@@ -150,17 +169,13 @@ function renderVista(v) {
 
   if (v === 'cargas') {
     const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
-    app.innerHTML = `<section class="card"><h2>Cargas</h2><div class="row"><select id="car-cli"><option value="">Cliente</option>${clientes}</select><button id="car-add">Crear carga desde pedido ABIERTO</button><button onclick="generarCargaSanJacinto()">CARGA SAN JACINTO</button></div><div id="resultadoCarga"></div><table><tr><th>ID</th><th>Cliente</th><th>Pallets</th><th>Fecha</th></tr>${listarCargas().map((c) => `<tr><td>${c.id}</td><td>${c.cliente}</td><td>${c.pallets.join(', ')}</td><td>${c.fecha}</td></tr>`).join('')}</table></section>`;
+    app.innerHTML = `<section class="card"><h2>Cargas</h2><div class="row"><select id="car-cli"><option value="">Cliente</option>${clientes}</select><button id="car-add">Crear carga desde pedido ABIERTO</button><button onclick="generarCargaSanJacinto()">CARGA SAN JACINTO</button></div><div id="resultadoCarga"></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Fecha</th></tr>${listarCargas().map((c) => `<tr><td>${c.id}</td><td>${c.numeroDespacho ?? c.id}</td><td>${c.cliente}</td><td>${c.pallets.join(', ')}</td><td>${c.fecha}</td></tr>`).join('')}</table></section>`;
     document.getElementById('car-add').onclick = () => {
-      try {
-        const carga = crearCarga(document.getElementById('car-cli').value);
-        const pallets = listarPallets().filter((p) => carga.pallets.includes(String(p.id)));
-        const resumen = generarPlanillaCarga(pallets);
-        alert(`Carga #${carga.id} creada. Pallets: ${resumen.cantidadPallets}. Kilos: ${resumen.totalKilos}.`);
-        renderVista('cargas');
-      } catch (error) {
-        alert(error.message);
-      }
+      const carga = crearCarga(document.getElementById('car-cli').value);
+      const pallets = listarPallets().filter((p) => carga.pallets.includes(Number(p.id)));
+      const resumen = generarPlanillaCarga(pallets);
+      alert(`Carga #${carga.id} (Despacho ${carga.numeroDespacho ?? carga.id}) creada. Pallets: ${resumen.cantidadPallets}. Kilos: ${resumen.totalKilos}.`);
+      renderVista('cargas');
     };
   }
 

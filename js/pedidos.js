@@ -3,21 +3,20 @@ import { listarPallets, guardarPallets, ESTADOS_PALLET } from './pallets.js';
 
 const KEY = 'pedidos';
 
+export const ESTADOS_PEDIDO = {
+  ABIERTO: 'ABIERTO',
+  CARGADO: 'CARGADO',
+};
+
 export function listarPedidos() {
   return obtenerDatos(KEY);
 }
 
-export function crearPedido(cliente, palletsSeleccionados = [], despachoNumero = '') {
-  const clienteNormalizado = String(cliente || '').trim();
-  if (!clienteNormalizado) throw new Error('Debe seleccionar un cliente.');
+export function guardarPedidos(lista) {
+  guardarDatos(KEY, lista);
+}
 
-  const despacho = String(despachoNumero || '').trim();
-  if (!despacho) throw new Error('Debe indicar el N° de despacho.');
-
-  const pedidos = listarPedidos();
-  const yaExisteDespacho = pedidos.some((p) => String(p.id) === despacho);
-  if (yaExisteDespacho) throw new Error(`El despacho ${despacho} ya existe.`);
-
+export function crearPedido(cliente, palletIds = []) {
   const pallets = listarPallets();
   const ids = [...new Set(palletsSeleccionados.map((v) => String(v.id || '').trim()).filter(Boolean))];
   const seleccionados = pallets.filter((p) => ids.includes(String(p.id)));
@@ -29,22 +28,18 @@ export function crearPedido(cliente, palletsSeleccionados = [], despachoNumero =
     || String(p.cliente).trim().toUpperCase() !== clienteNormalizado.toUpperCase());
   if (invalidos || seleccionados.length !== ids.length) throw new Error('Hay pallets no disponibles para reserva.');
 
-  const detalle = palletsSeleccionados
-    .filter((x) => ids.includes(String(x.id)))
-    .map((x) => {
-      const cajas = Number(x.cajas);
-      const pallet = seleccionados.find((p) => String(p.id) === String(x.id));
-      const cajasDisponibles = Number(pallet?.cajas);
-      if (Number.isFinite(cajas) && cajas > 0 && Number.isFinite(cajasDisponibles) && cajas > cajasDisponibles) {
-        throw new Error(`Cajas solicitadas superan disponibles para pallet ${x.id}.`);
-      }
-      return { id: String(x.id), cajas: Number.isFinite(cajas) && cajas > 0 ? cajas : null };
-    });
-
-  const pedido = { id: despacho, cliente: clienteNormalizado, pallets: ids, detalle, estado: 'ABIERTO' };
+  const pedidos = listarPedidos();
+  const nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
+  const pedido = {
+    id: nextId,
+    numeroDespacho: nextId,
+    cliente,
+    pallets: ids,
+    estado: ESTADOS_PEDIDO.ABIERTO,
+  };
 
   pedidos.push(pedido);
-  guardarDatos(KEY, pedidos);
+  guardarPedidos(pedidos);
 
   const actualizados = pallets.map((p) => (ids.includes(String(p.id)) ? { ...p, estado: ESTADOS_PALLET.RESERVADO } : p));
   guardarPallets(actualizados);

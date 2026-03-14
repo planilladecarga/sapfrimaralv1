@@ -1,5 +1,5 @@
 import { guardarDatos, obtenerDatos } from './storage.js';
-import { listarPedidos } from './pedidos.js';
+import { listarPedidos, guardarPedidos, ESTADOS_PEDIDO } from './pedidos.js';
 import { listarPallets, guardarPallets, ESTADOS_PALLET } from './pallets.js';
 
 const KEY = 'cargas';
@@ -9,15 +9,11 @@ export function listarCargas() {
 }
 
 export function crearCarga(cliente) {
-  const clienteNormalizado = String(cliente || '').trim().toUpperCase();
-  if (!clienteNormalizado) throw new Error('Debe seleccionar un cliente para crear la carga.');
+  const pedidos = listarPedidos();
+  const abiertos = pedidos.filter((p) => p.cliente === cliente && p.estado === ESTADOS_PEDIDO.ABIERTO);
+  if (!abiertos.length) throw new Error('No hay pedido ABIERTO para el cliente.');
 
-  const pedidos = listarPedidos().filter((p) =>
-    String(p.cliente || '').trim().toUpperCase() === clienteNormalizado && p.estado === 'ABIERTO');
-
-  if (!pedidos.length) throw new Error('No hay pedido ABIERTO para el cliente.');
-
-  const pedido = pedidos[0];
+  const pedido = abiertos[0];
   const pallets = listarPallets();
   const ids = pedido.pallets.map((id) => String(id));
 
@@ -26,9 +22,22 @@ export function crearCarga(cliente) {
 
   const cargas = listarCargas();
   const nextId = cargas.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0) + 1;
-  const carga = { id: nextId, cliente, pallets: ids, pedidoId: pedido.id, fecha: new Date().toISOString().slice(0, 10) };
+  const carga = {
+    id: nextId,
+    numeroDespacho: pedido.numeroDespacho ?? pedido.id,
+    cliente,
+    pallets: ids,
+    fecha: new Date().toISOString().slice(0, 10),
+  };
   cargas.push(carga);
   guardarDatos(KEY, cargas);
+
+  const pedidosActualizados = pedidos.map((p) => (
+    Number(p.id) === Number(pedido.id)
+      ? { ...p, estado: ESTADOS_PEDIDO.CARGADO }
+      : p
+  ));
+  guardarPedidos(pedidosActualizados);
   return carga;
 }
 
