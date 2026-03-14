@@ -3,8 +3,21 @@ import { listarPallets, guardarPallets, ESTADOS_PALLET } from './pallets.js';
 
 const KEY = 'pedidos';
 
+export const ESTADOS_PEDIDO = {
+  ABIERTO: 'ABIERTO',
+  CARGADO: 'CARGADO',
+};
+
 export function listarPedidos() {
   return obtenerDatos(KEY);
+}
+
+export function guardarPedidos(lista) {
+  guardarDatos(KEY, lista);
+}
+
+export function obtenerSiguienteNumeroDespacho() {
+  return listarPedidos().reduce((m, p) => Math.max(m, Number(p.numeroDespacho ?? p.id) || 0), 0) + 1;
 }
 
 export function crearPedido(cliente, palletIds = []) {
@@ -18,10 +31,17 @@ export function crearPedido(cliente, palletIds = []) {
 
   const pedidos = listarPedidos();
   const nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
-  const pedido = { id: nextId, cliente, pallets: ids, estado: 'ABIERTO' };
+  const numeroDespacho = obtenerSiguienteNumeroDespacho();
+  const pedido = {
+    id: nextId,
+    numeroDespacho,
+    cliente,
+    pallets: ids,
+    estado: ESTADOS_PEDIDO.ABIERTO,
+  };
 
   pedidos.push(pedido);
-  guardarDatos(KEY, pedidos);
+  guardarPedidos(pedidos);
 
   const actualizados = pallets.map((p) => (ids.includes(Number(p.id)) ? { ...p, estado: ESTADOS_PALLET.RESERVADO } : p));
   guardarPallets(actualizados);
