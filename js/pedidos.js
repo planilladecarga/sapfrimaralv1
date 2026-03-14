@@ -1,63 +1,62 @@
-import { guardarDatos, obtenerDatos } from './storage.js';
-import { listarPallets, guardarPallets, ESTADOS_PALLET } from './pallets.js';
+// Modelo de datos: Pedidos
+// { id: string, cliente: number, pallets: string[], estado: string }
 
-const KEY = 'pedidos';
+import { getPalletById, updatePalletEstado, ESTADOS_PALLET } from './stock.js';
+
+const STORAGE_KEY = 'wms_pedidos';
 
 export const ESTADOS_PEDIDO = {
-  ABIERTO: 'ABIERTO',
-  CARGADO: 'CARGADO',
+  CREADO: 'CREADO',
+  EN_PREPARACION: 'EN_PREPARACION',
+  COMPLETADO: 'COMPLETADO'
 };
 
-export function listarPedidos() {
-  return obtenerDatos(KEY);
+export function getPedidos() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
 }
 
-export function guardarPedidos(lista) {
-  guardarDatos(KEY, lista);
+export function savePedidos(pedidos) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pedidos));
 }
 
-export function obtenerSiguienteNumeroDespacho() {
-  return listarPedidos().reduce((m, p) => Math.max(m, Number(p.numeroDespacho ?? p.id) || 0), 0) + 1;
-}
-
-export function crearPedido(cliente, palletIds = []) {
-  const pallets = listarPallets();
-  const ids = [...new Set(palletsSeleccionados.map((v) => String(v.id || '').trim()).filter(Boolean))];
-  const seleccionados = pallets.filter((p) => ids.includes(String(p.id)));
-
-  if (!seleccionados.length) throw new Error('Debe seleccionar pallets.');
-
-  const invalidos = seleccionados.some((p) =>
-    p.estado !== ESTADOS_PALLET.EN_CAMARA
-    || String(p.cliente).trim().toUpperCase() !== clienteNormalizado.toUpperCase());
-  if (invalidos || seleccionados.length !== ids.length) throw new Error('Hay pallets no disponibles para reserva.');
-
-  const pedidos = listarPedidos();
-  const nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
-  const numeroDespacho = obtenerSiguienteNumeroDespacho();
+export function addPedido(clienteId, palletIds) {
+  const pedidos = getPedidos();
+  
   const pedido = {
-    id: nextId,
-    numeroDespacho,
-    cliente,
-    pallets: ids,
-    estado: ESTADOS_PEDIDO.ABIERTO,
+    id: 'PED-' + String(pedidos.length + 1).padStart(3, '0'),
+    cliente: parseInt(clienteId),
+    pallets: palletIds,
+    estado: ESTADOS_PEDIDO.CREADO
   };
-
+  
   pedidos.push(pedido);
-  guardarPedidos(pedidos);
-
-  const actualizados = pallets.map((p) => (ids.includes(String(p.id)) ? { ...p, estado: ESTADOS_PALLET.RESERVADO } : p));
-  guardarPallets(actualizados);
-
+  savePedidos(pedidos);
+  
+  // Cambiar estado de pallets a RESERVADO
+  palletIds.forEach(id => {
+    updatePalletEstado(id, ESTADOS_PALLET.RESERVADO);
+  });
+  
   return pedido;
 }
 
-export function reservarPallet(palletId) {
-  const pallets = listarPallets();
-  const idx = pallets.findIndex((p) => String(p.id) === String(palletId));
-  if (idx < 0) throw new Error('Pallet no existe.');
-  if (pallets[idx].estado !== ESTADOS_PALLET.EN_CAMARA) throw new Error('Pallet no disponible.');
-  pallets[idx].estado = ESTADOS_PALLET.RESERVADO;
-  guardarPallets(pallets);
-  return pallets[idx];
+export function getPedidoById(id) {
+  return getPedidos().find(p => p.id === id);
+}
+
+export function updatePedidoEstado(id, estado) {
+  const pedidos = getPedidos();
+  const index = pedidos.findIndex(p => p.id === id);
+  
+  if (index !== -1) {
+    pedidos[index].estado = estado;
+    savePedidos(pedidos);
+    return pedidos[index];
+  }
+  return null;
+}
+
+export function resetPedidos() {
+  localStorage.removeItem(STORAGE_KEY);
 }

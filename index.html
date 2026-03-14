@@ -3,20 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title>FRIMARAL · Mini WMS</title>
-    <link rel="stylesheet" href="/css/styles.css" />
+    <title>WMS Cámara Frigorífica</title>
+    <link rel="stylesheet" href="/src/index.css" />
+    <link rel="stylesheet" href="/css/estilos.css" />
   </head>
-  <body>
-    <header class="topbar">
-      <h1>FRIMARAL · Sistema Logístico</h1>
-      <nav id="tabs"></nav>
-    </header>
+  <body class="bg-gray-100 text-gray-800 font-sans">
+    <div id="app-container" class="min-h-screen flex flex-col">
+      <!-- Navbar -->
+      <nav class="bg-blue-800 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+          <div class="flex items-center justify-between h-16">
+            <div class="flex items-center">
+              <span class="font-bold text-xl">WMS Frigorífico</span>
+            </div>
+            <div class="flex space-x-2 overflow-x-auto">
+              <button data-view="dashboard" class="nav-btn active px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Dashboard</button>
+              <button data-view="importar" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Importar Excel</button>
+              <button data-view="camara" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Mapa Cámara</button>
+              <button data-view="pedidos" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Pedidos</button>
+              <button data-view="cargas" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Cargas</button>
+              <button data-view="admin" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700">Admin</button>
+            </div>
+          </div>
+        </div>
+      </nav>
 
-    <main id="app"></main>
-
+      <!-- Main Content -->
+      <main class="flex-1 max-w-7xl w-full mx-auto p-4" id="main-content">
+        <!-- Views will be injected here by app.js -->
+      </main>
+    </div>
+    
     <script type="module" src="/js/app.js"></script>
   </body>
 </html>
+

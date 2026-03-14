@@ -1,42 +1,41 @@
-import { guardarDatos, obtenerDatos } from './storage.js';
+// Modelo de datos: Clientes
+// { id: number, nombre: string }
 
-const KEY = 'clientes';
+const STORAGE_KEY = 'wms_clientes';
 
-export function listarClientes() {
-  return obtenerDatos(KEY);
+export function getClientes() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
 }
 
-// Soporta:
-// - crearCliente('ANTIC S.A.')
-// - crearCliente('ANTIC S.A.', 435)
-// - crearCliente({ id: 435, nombre: 'ANTIC S.A.' })
-export function crearCliente(inputNombre, inputId = null) {
-  const clientes = listarClientes();
+export function saveClientes(clientes) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(clientes));
+}
 
-  const nombre = typeof inputNombre === 'object'
-    ? String(inputNombre?.nombre || '').trim()
-    : String(inputNombre || '').trim();
+export function getClienteById(id) {
+  return getClientes().find(c => c.id === parseInt(id));
+}
 
-  const idPreferidoRaw = typeof inputNombre === 'object' ? inputNombre?.id : inputId;
-  const idPreferido = Number(idPreferidoRaw);
+export function getClienteByNombre(nombre) {
+  return getClientes().find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
+}
 
-  if (!nombre) throw new Error('Nombre de cliente requerido.');
+export function addCliente(id, nombre) {
+  const clientes = getClientes();
+  let cliente = getClienteById(id);
+  
+  if (!cliente) {
+    cliente = {
+      id: parseInt(id),
+      nombre: nombre.trim()
+    };
+    clientes.push(cliente);
+    saveClientes(clientes);
+  }
+  
+  return cliente;
+}
 
-  const existentePorId = Number.isFinite(idPreferido)
-    ? clientes.find((c) => Number(c.id) === idPreferido)
-    : null;
-  if (existentePorId) return existentePorId;
-
-  const existentePorNombre = clientes.find((c) => c.nombre.toUpperCase() === nombre.toUpperCase());
-  if (existentePorNombre) return existentePorNombre;
-
-  const nextId = clientes.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0) + 1;
-  const nuevo = {
-    id: Number.isFinite(idPreferido) ? idPreferido : nextId,
-    nombre,
-  };
-
-  clientes.push(nuevo);
-  guardarDatos(KEY, clientes);
-  return nuevo;
+export function resetClientes() {
+  localStorage.removeItem(STORAGE_KEY);
 }
