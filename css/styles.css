@@ -26,3 +26,16 @@ small.muted { color: #6b7280; }
 .libre { background: var(--ok); }
 .ocupado { background: var(--busy); }
 .reservado { background: var(--warn); color: #111827; }
+
+
+.version-badge {
+  margin-left: auto;
+  align-self: center;
+  background: #111827;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
