@@ -91,6 +91,7 @@ function renderVista(v) {
     app.innerHTML = `<section class="card"><h2>Pedidos</h2><p class="muted">Flujo: <b>Nuevo</b> → Cliente → Contenedor → Pallet → Guardar pedido.</p><div class="row"><button id="ped-new">Nuevo</button><span id="ped-num" class="muted">N° despacho: -</span></div><div class="row"><select id="ped-cli" disabled><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-save" disabled>Guardar pedido</button></div><p id="ped-msg" class="muted">Presione Nuevo para iniciar un pedido.</p><div id="ped-sel" class="card"><small class="muted">Sin pallets seleccionados para el pedido.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((ped) => `<tr><td>${ped.id}</td><td>${ped.numeroDespacho ?? ped.id}</td><td>${ped.cliente}</td><td>${ped.pallets.join(', ')}</td><td>${ped.estado}</td></tr>`).join('')}</table></section>`;
 
     const selected = [];
+    const norm = (v) => String(v ?? '').trim().toUpperCase();
     let iniciado = false;
 
     const pedNew = app.querySelector('#ped-new');
@@ -125,11 +126,11 @@ function renderVista(v) {
       actualizarEstadoGuardar();
     };
 
-    const palletsCliente = () => listarPallets().filter((pal) => pal.estado === 'EN_CAMARA' && pal.cliente === pedCli.value);
+    const palletsCliente = () => listarPallets().filter((pal) => pal.estado === 'EN_CAMARA' && norm(pal.cliente) === norm(pedCli.value));
 
     const refreshContenedores = () => {
       const pallets = palletsCliente();
-      const contenedores = [...new Set(pallets.map((pal) => pal.contenedor))];
+      const contenedores = [...new Set(pallets.map((pal) => String(pal.contenedor).trim()))];
       pedCont.innerHTML = `<option value="">Contenedor</option>${contenedores.map((cont) => `<option value="${cont}">${cont}</option>`).join('')}`;
       pedCont.disabled = !iniciado || !pedCli.value || !contenedores.length;
       pedPal.innerHTML = '<option value="">Pallet</option>';
@@ -144,10 +145,10 @@ function renderVista(v) {
     };
 
     const refreshPallets = () => {
-      const pallets = palletsCliente().filter((pal) => pal.contenedor === pedCont.value && !selected.includes(Number(pal.id)));
+      const pallets = palletsCliente().filter((pal) => norm(pal.contenedor) === norm(pedCont.value) && !selected.includes(Number(pal.id)));
       pedPal.innerHTML = `<option value="">Pallet</option>${pallets.map((pal) => `<option value="${pal.id}">${pal.id} · ${pal.producto} · Lote ${pal.lote} · ${pal.kilos}kg</option>`).join('')}`;
       pedPal.disabled = !iniciado || !pedCont.value || !pallets.length;
-      pedAdd.disabled = pedPal.disabled;
+      pedAdd.disabled = pedPal.disabled || !pedPal.value;
       pedMsg.textContent = !pedCont.value
         ? 'Seleccione un contenedor.'
         : pallets.length
@@ -174,6 +175,7 @@ function renderVista(v) {
 
     pedCli.addEventListener('change', refreshContenedores);
     pedCont.addEventListener('change', refreshPallets);
+    pedPal.addEventListener('change', () => { pedAdd.disabled = pedPal.disabled || !pedPal.value; });
 
     pedAdd.onclick = () => {
       const value = Number(pedPal.value);
@@ -231,7 +233,7 @@ function renderVista(v) {
       const file = document.getElementById('excel').files[0];
       if (!file) return;
       const res = await importarExcelStock(file);
-      document.getElementById('excel-msg').textContent = `Importación completada: ${res.nuevos} pallets nuevos.`;
+      document.getElementById('excel-msg').textContent = `Importación completada: ${res.nuevos} pallets nuevos (${res.creadosPorCantidad || 0} generados desde columna E - cantidad).`;
     };
   }
 
