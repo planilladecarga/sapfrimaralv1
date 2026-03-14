@@ -3,6 +3,11 @@ import { crearCliente } from './clientes.js';
 import { crearPallet, listarPallets } from './pallets.js';
 import { crearContenedor, generarContenedoresBase } from './contenedores.js';
 
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function importarExcelStock(file) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -15,6 +20,11 @@ export function importarExcelStock(file) {
 
         let clienteActual = null;
         let nuevos = 0;
+        let creadosPorCantidad = 0;
+
+        const palletsActuales = listarPallets();
+        const idsExistentes = new Set(palletsActuales.map((pal) => Number(pal.id)).filter((id) => Number.isFinite(id)));
+        let nextId = palletsActuales.reduce((m, pal) => Math.max(m, Number(pal.id) || 0), 0) + 1;
 
         rows.forEach((r) => {
           const c0 = String(r[0] || '').trim();
@@ -28,18 +38,42 @@ export function importarExcelStock(file) {
           }
 
           if (!clienteActual || /^id|pallet$/i.test(c0)) return;
-          const [id, producto, lote, contenedor, kilos] = r;
-          if (!id || !producto || !contenedor) return;
 
-          crearContenedor(String(contenedor), String(contenedor));
-          const existe = listarPallets().some((p) => Number(p.id) === Number(id));
-          if (!existe) {
-            crearPallet({ id, cliente: clienteActual, producto, lote, contenedor, kilos });
+          const idRaw = r[0];
+          const producto = String(r[1] || '').trim();
+          const lote = String(r[2] || '').trim();
+          const contenedor = String(r[3] || '').trim();
+          const cantidad = Math.max(1, Math.floor(toNumber(r[4], 1)));
+          const kilos = toNumber(r[5], toNumber(r[4], 0));
+
+          if (!producto || !contenedor) return;
+
+          crearContenedor(contenedor, contenedor);
+
+          for (let i = 0; i < cantidad; i += 1) {
+            const idCandidato = i === 0 && toNumber(idRaw, 0) > 0 ? toNumber(idRaw) : nextId;
+            const existe = idsExistentes.has(Number(idCandidato));
+            if (existe) {
+              nextId += 1;
+              continue;
+            }
+
+            crearPallet({
+              id: idCandidato,
+              cliente: clienteActual,
+              producto,
+              lote,
+              contenedor,
+              kilos,
+            });
             nuevos += 1;
+            if (cantidad > 1) creadosPorCantidad += 1;
+            idsExistentes.add(Number(idCandidato));
+            nextId = Math.max(nextId, Number(idCandidato) + 1);
           }
         });
 
-        resolve({ ok: true, nuevos });
+        resolve({ ok: true, nuevos, creadosPorCantidad });
       } catch (e) {
         reject(e);
       }
