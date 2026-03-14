@@ -43,6 +43,13 @@ jobs:
           EOF
           test -f dist/index.html
 
+      - name: Write build metadata artifact
+        run: |
+          cat > dist/build-meta.json <<EOF
+          {"sha":"${GITHUB_SHA}","shortSha":"${GITHUB_SHA::7}","buildTime":"${VITE_BUILD_TIME}"}
+          EOF
+          test -f dist/index.html
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
