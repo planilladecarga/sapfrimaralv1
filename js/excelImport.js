@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { crearCliente } from './clientes.js';
-import { crearPallet, listarPallets } from './pallets.js';
+import { crearPallet, listarPallets, ESTADOS_PALLET } from './pallets.js';
 import { crearContenedor, generarContenedoresBase } from './contenedores.js';
 
 function toNumber(value, fallback = 0) {
@@ -14,11 +14,21 @@ export function importarExcelStock(file) {
     fr.onload = () => {
       try {
         generarContenedoresBase();
+
         const wb = XLSX.read(new Uint8Array(fr.result), { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-        let clienteActual = null;
+        let clienteActualId = null;
+        let clienteActualNombre = '';
+        let indices = {
+          contenedor: 2,
+          contenido: 6,
+          vencimiento: 10,
+          lote: 3,
+          cajas: 4,
+          kilos: 5,
+        };
         let nuevos = 0;
         let creadosPorCantidad = 0;
 
@@ -26,14 +36,15 @@ export function importarExcelStock(file) {
         const idsExistentes = new Set(palletsActuales.map((pal) => Number(pal.id)).filter((id) => Number.isFinite(id)));
         let nextId = palletsActuales.reduce((m, pal) => Math.max(m, Number(pal.id) || 0), 0) + 1;
 
-        rows.forEach((r) => {
-          const c0 = String(r[0] || '').trim();
+        rows.forEach((row) => {
+          const c0 = textoCelda(row[0]);
           if (!c0) return;
 
-          if (/^cliente:/i.test(c0)) {
-            const texto = c0.replace(/^cliente:/i, '').trim();
-            const partes = texto.match(/^(\d+)?\s*(.*)$/);
-            clienteActual = crearCliente((partes?.[2] || texto).trim()).nombre;
+          const cliente = parsearClienteDesdeFila(row);
+          if (cliente) {
+            clienteActualId = cliente.id;
+            clienteActualNombre = cliente.nombre;
+            crearCliente({ id: cliente.id, nombre: cliente.nombre });
             return;
           }
 
@@ -71,6 +82,37 @@ export function importarExcelStock(file) {
             idsExistentes.add(Number(idCandidato));
             nextId = Math.max(nextId, Number(idCandidato) + 1);
           }
+
+          // Fila de stock: primera columna con fecha
+          if (!convertirAFecha(c0)) return;
+          if (!clienteActualId || !clienteActualNombre) return;
+
+          const contenedor = textoCelda(row[indices.contenedor]);
+          const producto = textoCelda(row[indices.contenido]);
+          const fechaVencimiento = textoCelda(row[indices.vencimiento]);
+          const lote = textoCelda(row[indices.lote]);
+          const cajas = normalizarNumeroDesdeExcel(row[indices.cajas]);
+          const kilos = normalizarNumeroDesdeExcel(row[indices.kilos]);
+
+          if (!contenedor || !producto) return;
+
+          crearContenedor(contenedor, contenedor);
+
+          const id = generarSiguienteIdPallet();
+          crearPallet({
+            id,
+            clienteId: clienteActualId,
+            clienteNombre: clienteActualNombre,
+            cliente: clienteActualNombre,
+            producto,
+            contenedor,
+            fechaVencimiento,
+            lote,
+            cajas: Number.isFinite(cajas) ? cajas : 0,
+            kilos: Number.isFinite(kilos) ? kilos : 0,
+            estado: ESTADOS_PALLET.EN_CAMARA,
+          });
+          nuevos += 1;
         });
 
         resolve({ ok: true, nuevos, creadosPorCantidad });
@@ -78,6 +120,7 @@ export function importarExcelStock(file) {
         reject(e);
       }
     };
+
     fr.onerror = reject;
     fr.readAsArrayBuffer(file);
   });
