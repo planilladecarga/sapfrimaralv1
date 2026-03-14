@@ -1,6 +1,6 @@
 import { crearCliente, listarClientes } from './clientes.js';
 import { crearPallet, filtrarPallets, listarPallets } from './pallets.js';
-import { crearPedido, listarPedidos } from './pedidos.js';
+import { crearPedido, listarPedidos, obtenerSiguienteNumeroDespacho } from './pedidos.js';
 import { crearCarga, cargaSanJacinto, generarPlanillaCarga, listarCargas } from './cargas.js';
 import { generarContenedoresBase } from './contenedores.js';
 import { importarExcelStock } from './excelImport.js';
@@ -86,27 +86,31 @@ function renderVista(v) {
 
   if (v === 'pedidos') {
     const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
-    app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><button id="ped-new">Nuevo</button><span id="ped-num" class="muted">N° despacho: -</span></div><div class="row"><select id="ped-cli" disabled><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-save" disabled>Guardar pedido</button></div><div id="ped-sel" class="card"><small class="muted">Presione Nuevo para iniciar un pedido.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((ped) => `<tr><td>${ped.id}</td><td>${ped.numeroDespacho ?? ped.id}</td><td>${ped.cliente}</td><td>${ped.pallets.join(', ')}</td><td>${ped.estado}</td></tr>`).join('')}</table></section>`;
+    app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><button id="ped-new">Nuevo</button><span id="ped-num" class="muted">N° despacho: -</span></div><div class="row"><select id="ped-cli" disabled><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-save" disabled>Guardar pedido</button></div><p id="ped-msg" class="muted">Presione Nuevo para iniciar un pedido.</p><div id="ped-sel" class="card"><small class="muted">Sin pallets seleccionados para el pedido.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((ped) => `<tr><td>${ped.id}</td><td>${ped.numeroDespacho ?? ped.id}</td><td>${ped.cliente}</td><td>${ped.pallets.join(', ')}</td><td>${ped.estado}</td></tr>`).join('')}</table></section>`;
 
     const selected = [];
     let iniciado = false;
 
-    const pedNew = document.getElementById('ped-new');
-    const pedNum = document.getElementById('ped-num');
-    const pedCli = document.getElementById('ped-cli');
-    const pedCont = document.getElementById('ped-cont');
-    const pedPal = document.getElementById('ped-pal');
-    const pedAdd = document.getElementById('ped-pallet-add');
-    const pedSave = document.getElementById('ped-save');
-    const pedSel = document.getElementById('ped-sel');
+    const pedNew = app.querySelector('#ped-new');
+    const pedNum = app.querySelector('#ped-num');
+    const pedCli = app.querySelector('#ped-cli');
+    const pedCont = app.querySelector('#ped-cont');
+    const pedPal = app.querySelector('#ped-pal');
+    const pedAdd = app.querySelector('#ped-pallet-add');
+    const pedSave = app.querySelector('#ped-save');
+    const pedSel = app.querySelector('#ped-sel');
+    const pedMsg = app.querySelector('#ped-msg');
 
-    if (!pedNew || !pedNum || !pedCli || !pedCont || !pedPal || !pedAdd || !pedSave || !pedSel) return;
+    if (!pedNew || !pedNum || !pedCli || !pedCont || !pedPal || !pedAdd || !pedSave || !pedSel || !pedMsg) return;
 
-    const nextDespacho = () => listarPedidos().reduce((m, ped) => Math.max(m, Number(ped.id) || 0), 0) + 1;
+    const actualizarEstadoGuardar = () => {
+      pedSave.disabled = !(iniciado && pedCli.value && selected.length > 0);
+    };
 
     const renderSeleccion = () => {
       if (!selected.length) {
         pedSel.innerHTML = '<small class="muted">Sin pallets seleccionados para el pedido.</small>';
+        actualizarEstadoGuardar();
         return;
       }
       const disponibles = listarPallets();
@@ -116,6 +120,7 @@ function renderVista(v) {
         return `<li>${pal.id} · ${pal.contenedor} · ${pal.producto} · Lote ${pal.lote} · ${pal.kilos} kg</li>`;
       }).join('');
       pedSel.innerHTML = `<b>Pallets seleccionados:</b><ul>${filas}</ul>`;
+      actualizarEstadoGuardar();
     };
 
     const palletsCliente = () => listarPallets().filter((pal) => pal.estado === 'EN_CAMARA' && pal.cliente === pedCli.value);
@@ -128,6 +133,12 @@ function renderVista(v) {
       pedPal.innerHTML = '<option value="">Pallet</option>';
       pedPal.disabled = true;
       pedAdd.disabled = true;
+      pedMsg.textContent = !pedCli.value
+        ? 'Seleccione un cliente.'
+        : contenedores.length
+          ? 'Seleccione un contenedor del cliente.'
+          : 'El cliente no tiene pallets EN_CAMARA disponibles.';
+      actualizarEstadoGuardar();
     };
 
     const refreshPallets = () => {
@@ -135,12 +146,18 @@ function renderVista(v) {
       pedPal.innerHTML = `<option value="">Pallet</option>${pallets.map((pal) => `<option value="${pal.id}">${pal.id} · ${pal.producto} · Lote ${pal.lote} · ${pal.kilos}kg</option>`).join('')}`;
       pedPal.disabled = !iniciado || !pedCont.value || !pallets.length;
       pedAdd.disabled = pedPal.disabled;
+      pedMsg.textContent = !pedCont.value
+        ? 'Seleccione un contenedor.'
+        : pallets.length
+          ? 'Seleccione un pallet y agréguelo al pedido.'
+          : 'No hay más pallets disponibles en ese contenedor.';
+      actualizarEstadoGuardar();
     };
 
     pedNew.onclick = () => {
       iniciado = true;
       selected.length = 0;
-      pedNum.textContent = `N° despacho: ${nextDespacho()}`;
+      pedNum.textContent = `N° despacho: ${obtenerSiguienteNumeroDespacho()}`;
       pedCli.disabled = false;
       pedCli.value = '';
       pedCont.innerHTML = '<option value="">Contenedor</option>';
@@ -148,8 +165,9 @@ function renderVista(v) {
       pedPal.innerHTML = '<option value="">Pallet</option>';
       pedPal.disabled = true;
       pedAdd.disabled = true;
-      pedSave.disabled = false;
+      pedMsg.textContent = 'Seleccione un cliente para continuar.';
       renderSeleccion();
+      actualizarEstadoGuardar();
     };
 
     pedCli.addEventListener('change', refreshContenedores);
@@ -157,14 +175,14 @@ function renderVista(v) {
 
     pedAdd.onclick = () => {
       const value = Number(pedPal.value);
-      if (!value) return;
+      if (!value || selected.includes(value)) return;
       selected.push(value);
       refreshPallets();
       renderSeleccion();
     };
 
     pedSave.onclick = () => {
-      if (!iniciado) return;
+      if (!iniciado || !pedCli.value || !selected.length) return;
       crearPedido(pedCli.value, selected);
       renderVista('pedidos');
     };
