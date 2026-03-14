@@ -87,16 +87,16 @@ export function importarExcelStock(file) {
           if (!convertirAFecha(c0)) return;
           if (!clienteActualId || !clienteActualNombre) return;
 
-          const contenedor = textoCelda(row[indices.contenedor]);
+          const contenedorValor = textoCelda(row[indices.contenedor]);
           const producto = textoCelda(row[indices.contenido]);
           const fechaVencimiento = textoCelda(row[indices.vencimiento]);
           const lote = textoCelda(row[indices.lote]);
           const cajas = normalizarNumeroDesdeExcel(row[indices.cajas]);
           const kilos = normalizarNumeroDesdeExcel(row[indices.kilos]);
 
-          if (!contenedor || !producto) return;
+          if (!contenedorValor || !producto) return;
 
-          crearContenedor(contenedor, contenedor);
+          crearContenedor(contenedorValor, contenedorValor);
 
           const id = generarSiguienteIdPallet();
           crearPallet({
@@ -105,7 +105,7 @@ export function importarExcelStock(file) {
             clienteNombre: clienteActualNombre,
             cliente: clienteActualNombre,
             producto,
-            contenedor,
+            contenedor: contenedorValor,
             fechaVencimiento,
             lote,
             cajas: Number.isFinite(cajas) ? cajas : 0,
