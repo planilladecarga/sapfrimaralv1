@@ -19,14 +19,14 @@ export function crearCarga(cliente) {
 
   const pedido = pedidos[0];
   const pallets = listarPallets();
-  const ids = pedido.pallets.map(Number);
+  const ids = pedido.pallets.map((id) => String(id));
 
-  const actualizados = pallets.map((p) => (ids.includes(Number(p.id)) ? { ...p, estado: ESTADOS_PALLET.EN_CARGA } : p));
+  const actualizados = pallets.map((p) => (ids.includes(String(p.id)) ? { ...p, estado: ESTADOS_PALLET.EN_CARGA } : p));
   guardarPallets(actualizados);
 
   const cargas = listarCargas();
   const nextId = cargas.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0) + 1;
-  const carga = { id: nextId, cliente, pallets: ids, fecha: new Date().toISOString().slice(0, 10) };
+  const carga = { id: nextId, cliente, pallets: ids, pedidoId: pedido.id, fecha: new Date().toISOString().slice(0, 10) };
   cargas.push(carga);
   guardarDatos(KEY, cargas);
   return carga;
@@ -34,7 +34,7 @@ export function crearCarga(cliente) {
 
 export function moverPalletACarga(palletId) {
   const pallets = listarPallets();
-  const idx = pallets.findIndex((p) => Number(p.id) === Number(palletId));
+  const idx = pallets.findIndex((p) => String(p.id) === String(palletId));
   if (idx < 0) throw new Error('Pallet no existe.');
   if (pallets[idx].estado !== ESTADOS_PALLET.RESERVADO) throw new Error('Pallet debe estar RESERVADO.');
   pallets[idx].estado = ESTADOS_PALLET.EN_CARGA;
