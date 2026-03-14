@@ -14,9 +14,6 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,11 +30,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set app metadata
+        run: |
+          echo "VITE_APP_VERSION=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+
+      - name: Verify importer source before build
+        run: |
+          echo "HEAD: ${GITHUB_SHA}"
+          test -f js/excelImport.js
+          sed -n '80,120p' js/excelImport.js
+          if grep -n "textoCelda\|clienteActualId\|clienteActualNombre\|const producto =" js/excelImport.js; then
+            echo "Found legacy parser pattern in js/excelImport.js. Failing early."
+            exit 1
+          fi
+
       - name: Build
         run: npm run build
 
+      - name: Write build metadata artifact
+        run: |
+          cat > dist/build-meta.json <<EOF
+          {"sha":"${GITHUB_SHA}","shortSha":"${GITHUB_SHA::7}","buildTime":"${VITE_BUILD_TIME}"}
+          EOF
+          test -f dist/index.html
+
       - name: Configure Pages
-        uses: actions/configure-pages@v4.0.0
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3.0.1
