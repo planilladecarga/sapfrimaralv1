@@ -37,7 +37,13 @@ export function crearPallet(pallet) {
   guardarPallets(pallets);
 
   const contenedores = listarContenedores();
-  const idx = contenedores.findIndex((c) => c.id === nuevo.contenedor);
+  const contenedorRef = String(nuevo.contenedor).trim().toUpperCase();
+  const idx = contenedores.findIndex((c) => {
+    const id = String(c.id).trim().toUpperCase();
+    const posicion = String(c.posicion).trim().toUpperCase();
+    const posicionDesdeId = id.startsWith('C20-') ? id.slice(4) : id;
+    return id === contenedorRef || posicion === contenedorRef || posicionDesdeId === contenedorRef;
+  });
   if (idx >= 0) {
     contenedores[idx].estado = ESTADOS_CONTENEDOR.OCUPADO;
     guardarContenedores(contenedores);
