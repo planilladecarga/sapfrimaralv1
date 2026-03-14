@@ -3,91 +3,9 @@ import { crearCliente } from './clientes.js';
 import { crearPallet, listarPallets, ESTADOS_PALLET } from './pallets.js';
 import { crearContenedor, generarContenedoresBase } from './contenedores.js';
 
-const ETIQUETAS_IGNORAR = ['fecha:', 'fecha hasta:', 'reporte:', 'totales:'];
-
-function textoCelda(cell) {
-  return String(cell || '').trim();
-}
-
-function normalizarNumeroDesdeExcel(valor) {
-  const t = textoCelda(valor);
-  if (!t) return NaN;
-  const sinMiles = t.replace(/\./g, '').replace(/\s+/g, '');
-  const normalizado = sinMiles.replace(',', '.');
-  const n = Number(normalizado);
-  return Number.isFinite(n) ? n : NaN;
-}
-
-function normalizarIdCliente(valor) {
-  const t = textoCelda(valor);
-  if (!t) return null;
-  const digits = t.replace(/\D/g, '');
-  if (!digits) return null;
-  const n = Number(digits);
-  return Number.isFinite(n) ? n : null;
-}
-
-function esFilaIgnorable(c0) {
-  const t = c0.toLowerCase();
-  return ETIQUETAS_IGNORAR.some((x) => t.startsWith(x));
-}
-
-function parsearClienteDesdeFila(row) {
-  const c0 = textoCelda(row[0]);
-  if (!/^cliente\s*:?/i.test(c0)) return null;
-
-  const idDesdeCol1 = normalizarIdCliente(row[1]);
-  const nombreDesdeCol2 = textoCelda(row[2]);
-
-  if (Number.isFinite(idDesdeCol1) && nombreDesdeCol2) {
-    return { id: idDesdeCol1, nombre: nombreDesdeCol2 };
-  }
-
-  // Fallback: si viene todo junto en columna 0
-  const combinado = [c0, ...row.slice(1).map(textoCelda).filter(Boolean)].join(' ').trim();
-  const sinPrefijo = combinado.replace(/^cliente\s*:?\s*/i, '');
-  const m = sinPrefijo.match(/^([\d\.]+)\s+(.+)$/);
-  if (!m) return null;
-  const id = normalizarIdCliente(m[1]);
-  if (!id) return null;
-  return { id, nombre: m[2].trim() };
-}
-
-function convertirAFecha(valor) {
-  const t = textoCelda(valor);
-  return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(t);
-}
-
-function generarSiguienteIdPallet() {
-  const pallets = listarPallets();
-  const max = pallets.reduce((acc, p) => {
-    const m = String(p.id).match(/^PALLET-(\d+)$/i);
-    if (!m) return acc;
-    return Math.max(acc, Number(m[1]));
-  }, 0);
-  return `PALLET-${String(max + 1).padStart(5, '0')}`;
-}
-
-function detectarIndicesCabecera(row) {
-  const headers = row.map((c) => textoCelda(c).toLowerCase());
-  const idxContenedor = headers.findIndex((h) => h.includes('contenedor'));
-  const idxContenido = headers.findIndex((h) => h.includes('contenido') || h.includes('descripcion'));
-  const idxVenc = headers.findIndex((h) => h.includes('venc'));
-  const idxPallet = headers.findIndex((h) => h === 'pallet' || h.includes('lote'));
-  const idxCajas = headers.findIndex((h) => h.includes('cajas'));
-  const idxKilos = headers.findIndex((h) => h.includes('kilos'));
-
-  if (idxContenedor >= 0 || idxContenido >= 0 || idxVenc >= 0 || idxPallet >= 0 || idxCajas >= 0 || idxKilos >= 0) {
-    return {
-      contenedor: idxContenedor,
-      contenido: idxContenido,
-      vencimiento: idxVenc,
-      lote: idxPallet,
-      cajas: idxCajas,
-      kilos: idxKilos,
-    };
-  }
-  return null;
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 export function importarExcelStock(file) {
@@ -112,6 +30,11 @@ export function importarExcelStock(file) {
           kilos: 5,
         };
         let nuevos = 0;
+        let creadosPorCantidad = 0;
+
+        const palletsActuales = listarPallets();
+        const idsExistentes = new Set(palletsActuales.map((pal) => Number(pal.id)).filter((id) => Number.isFinite(id)));
+        let nextId = palletsActuales.reduce((m, pal) => Math.max(m, Number(pal.id) || 0), 0) + 1;
 
         rows.forEach((row) => {
           const c0 = textoCelda(row[0]);
@@ -125,19 +48,39 @@ export function importarExcelStock(file) {
             return;
           }
 
-          if (esFilaIgnorable(c0)) return;
+          if (!clienteActual || /^id|pallet$/i.test(c0)) return;
 
-          const cabeceraDetectada = detectarIndicesCabecera(row);
-          if (cabeceraDetectada) {
-            indices = {
-              contenedor: cabeceraDetectada.contenedor >= 0 ? cabeceraDetectada.contenedor : indices.contenedor,
-              contenido: cabeceraDetectada.contenido >= 0 ? cabeceraDetectada.contenido : indices.contenido,
-              vencimiento: cabeceraDetectada.vencimiento >= 0 ? cabeceraDetectada.vencimiento : indices.vencimiento,
-              lote: cabeceraDetectada.lote >= 0 ? cabeceraDetectada.lote : indices.lote,
-              cajas: cabeceraDetectada.cajas >= 0 ? cabeceraDetectada.cajas : indices.cajas,
-              kilos: cabeceraDetectada.kilos >= 0 ? cabeceraDetectada.kilos : indices.kilos,
-            };
-            return;
+          const idRaw = r[0];
+          const producto = String(r[1] || '').trim();
+          const lote = String(r[2] || '').trim();
+          const contenedor = String(r[3] || '').trim();
+          const cantidad = Math.max(1, Math.floor(toNumber(r[4], 1)));
+          const kilos = toNumber(r[5], toNumber(r[4], 0));
+
+          if (!producto || !contenedor) return;
+
+          crearContenedor(contenedor, contenedor);
+
+          for (let i = 0; i < cantidad; i += 1) {
+            const idCandidato = i === 0 && toNumber(idRaw, 0) > 0 ? toNumber(idRaw) : nextId;
+            const existe = idsExistentes.has(Number(idCandidato));
+            if (existe) {
+              nextId += 1;
+              continue;
+            }
+
+            crearPallet({
+              id: idCandidato,
+              cliente: clienteActual,
+              producto,
+              lote,
+              contenedor,
+              kilos,
+            });
+            nuevos += 1;
+            if (cantidad > 1) creadosPorCantidad += 1;
+            idsExistentes.add(Number(idCandidato));
+            nextId = Math.max(nextId, Number(idCandidato) + 1);
           }
 
           // Fila de stock: primera columna con fecha
@@ -172,11 +115,7 @@ export function importarExcelStock(file) {
           nuevos += 1;
         });
 
-        resolve({
-          ok: true,
-          nuevos,
-          mensaje: `Importación finalizada. Pallets creados: ${nuevos}.`,
-        });
+        resolve({ ok: true, nuevos, creadosPorCantidad });
       } catch (e) {
         reject(e);
       }
