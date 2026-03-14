@@ -86,13 +86,23 @@ function renderVista(v) {
 
   if (v === 'pedidos') {
     const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
-    app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><select id="ped-cli"><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-add">Crear pedido</button></div><div id="ped-sel" class="card"><small class="muted">Seleccione cliente, contenedor y pallet.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((p) => `<tr><td>${p.id}</td><td>${p.numeroDespacho ?? p.id}</td><td>${p.cliente}</td><td>${p.pallets.join(', ')}</td><td>${p.estado}</td></tr>`).join('')}</table></section>`;
+    app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><button id="ped-new">Nuevo</button><span id="ped-num" class="muted">N° despacho: -</span></div><div class="row"><select id="ped-cli" disabled><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-save" disabled>Guardar pedido</button></div><div id="ped-sel" class="card"><small class="muted">Presione Nuevo para iniciar un pedido.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((ped) => `<tr><td>${ped.id}</td><td>${ped.numeroDespacho ?? ped.id}</td><td>${ped.cliente}</td><td>${ped.pallets.join(', ')}</td><td>${ped.estado}</td></tr>`).join('')}</table></section>`;
 
     const selected = [];
+    let iniciado = false;
+
+    const pedNew = document.getElementById('ped-new');
+    const pedNum = document.getElementById('ped-num');
     const pedCli = document.getElementById('ped-cli');
     const pedCont = document.getElementById('ped-cont');
     const pedPal = document.getElementById('ped-pal');
+    const pedAdd = document.getElementById('ped-pallet-add');
+    const pedSave = document.getElementById('ped-save');
     const pedSel = document.getElementById('ped-sel');
+
+    if (!pedNew || !pedNum || !pedCli || !pedCont || !pedPal || !pedAdd || !pedSave || !pedSel) return;
+
+    const nextDespacho = () => listarPedidos().reduce((m, ped) => Math.max(m, Number(ped.id) || 0), 0) + 1;
 
     const renderSeleccion = () => {
       if (!selected.length) {
@@ -101,36 +111,51 @@ function renderVista(v) {
       }
       const disponibles = listarPallets();
       const filas = selected.map((id) => {
-        const p = disponibles.find((x) => Number(x.id) === Number(id));
-        if (!p) return `<li>Pallet ${id}</li>`;
-        return `<li>${p.id} · ${p.contenedor} · ${p.producto} · Lote ${p.lote} · ${p.kilos} kg</li>`;
+        const pal = disponibles.find((x) => Number(x.id) === Number(id));
+        if (!pal) return `<li>Pallet ${id}</li>`;
+        return `<li>${pal.id} · ${pal.contenedor} · ${pal.producto} · Lote ${pal.lote} · ${pal.kilos} kg</li>`;
       }).join('');
       pedSel.innerHTML = `<b>Pallets seleccionados:</b><ul>${filas}</ul>`;
     };
 
-    const palletsCliente = () => listarPallets().filter((p) => p.estado === 'EN_CAMARA' && p.cliente === pedCli.value);
+    const palletsCliente = () => listarPallets().filter((pal) => pal.estado === 'EN_CAMARA' && pal.cliente === pedCli.value);
 
     const refreshContenedores = () => {
       const pallets = palletsCliente();
-      const contenedores = [...new Set(pallets.map((p) => p.contenedor))];
-      pedCont.innerHTML = `<option value="">Contenedor</option>${contenedores.map((c) => `<option value="${c}">${c}</option>`).join('')}`;
-      pedCont.disabled = !contenedores.length;
+      const contenedores = [...new Set(pallets.map((pal) => pal.contenedor))];
+      pedCont.innerHTML = `<option value="">Contenedor</option>${contenedores.map((cont) => `<option value="${cont}">${cont}</option>`).join('')}`;
+      pedCont.disabled = !iniciado || !pedCli.value || !contenedores.length;
       pedPal.innerHTML = '<option value="">Pallet</option>';
       pedPal.disabled = true;
-      document.getElementById('ped-pallet-add').disabled = true;
+      pedAdd.disabled = true;
     };
 
     const refreshPallets = () => {
-      const pallets = palletsCliente().filter((p) => p.contenedor === pedCont.value && !selected.includes(Number(p.id)));
-      pedPal.innerHTML = `<option value="">Pallet</option>${pallets.map((p) => `<option value="${p.id}">${p.id} · ${p.producto} · Lote ${p.lote} · ${p.kilos}kg</option>`).join('')}`;
-      pedPal.disabled = !pallets.length;
-      document.getElementById('ped-pallet-add').disabled = !pallets.length;
+      const pallets = palletsCliente().filter((pal) => pal.contenedor === pedCont.value && !selected.includes(Number(pal.id)));
+      pedPal.innerHTML = `<option value="">Pallet</option>${pallets.map((pal) => `<option value="${pal.id}">${pal.id} · ${pal.producto} · Lote ${pal.lote} · ${pal.kilos}kg</option>`).join('')}`;
+      pedPal.disabled = !iniciado || !pedCont.value || !pallets.length;
+      pedAdd.disabled = pedPal.disabled;
+    };
+
+    pedNew.onclick = () => {
+      iniciado = true;
+      selected.length = 0;
+      pedNum.textContent = `N° despacho: ${nextDespacho()}`;
+      pedCli.disabled = false;
+      pedCli.value = '';
+      pedCont.innerHTML = '<option value="">Contenedor</option>';
+      pedCont.disabled = true;
+      pedPal.innerHTML = '<option value="">Pallet</option>';
+      pedPal.disabled = true;
+      pedAdd.disabled = true;
+      pedSave.disabled = false;
+      renderSeleccion();
     };
 
     pedCli.addEventListener('change', refreshContenedores);
     pedCont.addEventListener('change', refreshPallets);
 
-    document.getElementById('ped-pallet-add').onclick = () => {
+    pedAdd.onclick = () => {
       const value = Number(pedPal.value);
       if (!value) return;
       selected.push(value);
@@ -138,13 +163,9 @@ function renderVista(v) {
       renderSeleccion();
     };
 
-    document.getElementById('ped-add').onclick = () => {
+    pedSave.onclick = () => {
+      if (!iniciado) return;
       crearPedido(pedCli.value, selected);
-      renderVista('pedidos');
-    };
-
-    document.getElementById('ped-cont').onchange = (e) => {
-      estadoPedidosVista.contenedor = e.target.value;
       renderVista('pedidos');
     };
 
