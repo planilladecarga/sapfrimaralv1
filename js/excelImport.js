@@ -9,6 +9,24 @@ function textoCelda(cell) {
   return String(cell || '').trim();
 }
 
+function normalizarNumeroDesdeExcel(valor) {
+  const t = textoCelda(valor);
+  if (!t) return NaN;
+  const sinMiles = t.replace(/\./g, '').replace(/\s+/g, '');
+  const normalizado = sinMiles.replace(',', '.');
+  const n = Number(normalizado);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function normalizarIdCliente(valor) {
+  const t = textoCelda(valor);
+  if (!t) return null;
+  const digits = t.replace(/\D/g, '');
+  if (!digits) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
 function esFilaIgnorable(c0) {
   const t = c0.toLowerCase();
   return ETIQUETAS_IGNORAR.some((x) => t.startsWith(x));
@@ -18,7 +36,7 @@ function parsearClienteDesdeFila(row) {
   const c0 = textoCelda(row[0]);
   if (!/^cliente\s*:?/i.test(c0)) return null;
 
-  const idDesdeCol1 = Number(textoCelda(row[1]));
+  const idDesdeCol1 = normalizarIdCliente(row[1]);
   const nombreDesdeCol2 = textoCelda(row[2]);
 
   if (Number.isFinite(idDesdeCol1) && nombreDesdeCol2) {
@@ -28,9 +46,11 @@ function parsearClienteDesdeFila(row) {
   // Fallback: si viene todo junto en columna 0
   const combinado = [c0, ...row.slice(1).map(textoCelda).filter(Boolean)].join(' ').trim();
   const sinPrefijo = combinado.replace(/^cliente\s*:?\s*/i, '');
-  const m = sinPrefijo.match(/^(\d+)\s+(.+)$/);
+  const m = sinPrefijo.match(/^([\d\.]+)\s+(.+)$/);
   if (!m) return null;
-  return { id: Number(m[1]), nombre: m[2].trim() };
+  const id = normalizarIdCliente(m[1]);
+  if (!id) return null;
+  return { id, nombre: m[2].trim() };
 }
 
 function convertirAFecha(valor) {
@@ -51,14 +71,20 @@ function generarSiguienteIdPallet() {
 function detectarIndicesCabecera(row) {
   const headers = row.map((c) => textoCelda(c).toLowerCase());
   const idxContenedor = headers.findIndex((h) => h.includes('contenedor'));
-  const idxContenido = headers.findIndex((h) => h.includes('contenido'));
+  const idxContenido = headers.findIndex((h) => h.includes('contenido') || h.includes('descripcion'));
   const idxVenc = headers.findIndex((h) => h.includes('venc'));
+  const idxPallet = headers.findIndex((h) => h === 'pallet' || h.includes('lote'));
+  const idxCajas = headers.findIndex((h) => h.includes('cajas'));
+  const idxKilos = headers.findIndex((h) => h.includes('kilos'));
 
-  if (idxContenedor >= 0 || idxContenido >= 0 || idxVenc >= 0) {
+  if (idxContenedor >= 0 || idxContenido >= 0 || idxVenc >= 0 || idxPallet >= 0 || idxCajas >= 0 || idxKilos >= 0) {
     return {
       contenedor: idxContenedor,
       contenido: idxContenido,
       vencimiento: idxVenc,
+      lote: idxPallet,
+      cajas: idxCajas,
+      kilos: idxKilos,
     };
   }
   return null;
@@ -77,7 +103,14 @@ export function importarExcelStock(file) {
 
         let clienteActualId = null;
         let clienteActualNombre = '';
-        let indices = { contenedor: 2, contenido: 8, vencimiento: 10 };
+        let indices = {
+          contenedor: 2,
+          contenido: 6,
+          vencimiento: 10,
+          lote: 3,
+          cajas: 4,
+          kilos: 5,
+        };
         let nuevos = 0;
 
         rows.forEach((row) => {
@@ -100,6 +133,9 @@ export function importarExcelStock(file) {
               contenedor: cabeceraDetectada.contenedor >= 0 ? cabeceraDetectada.contenedor : indices.contenedor,
               contenido: cabeceraDetectada.contenido >= 0 ? cabeceraDetectada.contenido : indices.contenido,
               vencimiento: cabeceraDetectada.vencimiento >= 0 ? cabeceraDetectada.vencimiento : indices.vencimiento,
+              lote: cabeceraDetectada.lote >= 0 ? cabeceraDetectada.lote : indices.lote,
+              cajas: cabeceraDetectada.cajas >= 0 ? cabeceraDetectada.cajas : indices.cajas,
+              kilos: cabeceraDetectada.kilos >= 0 ? cabeceraDetectada.kilos : indices.kilos,
             };
             return;
           }
@@ -111,6 +147,9 @@ export function importarExcelStock(file) {
           const contenedor = textoCelda(row[indices.contenedor]);
           const producto = textoCelda(row[indices.contenido]);
           const fechaVencimiento = textoCelda(row[indices.vencimiento]);
+          const lote = textoCelda(row[indices.lote]);
+          const cajas = normalizarNumeroDesdeExcel(row[indices.cajas]);
+          const kilos = normalizarNumeroDesdeExcel(row[indices.kilos]);
 
           if (!contenedor || !producto) return;
 
@@ -125,8 +164,9 @@ export function importarExcelStock(file) {
             producto,
             contenedor,
             fechaVencimiento,
-            lote: '',
-            kilos: 0,
+            lote,
+            cajas: Number.isFinite(cajas) ? cajas : 0,
+            kilos: Number.isFinite(kilos) ? kilos : 0,
             estado: ESTADOS_PALLET.EN_CAMARA,
           });
           nuevos += 1;

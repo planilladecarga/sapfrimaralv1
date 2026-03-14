@@ -21,9 +21,11 @@ export function guardarPallets(lista) {
 export function crearPallet(pallet) {
   const pallets = listarPallets();
   const rawId = pallet.id;
-  const idNormalizado = typeof rawId === 'string' ? rawId.trim() : Number(rawId);
+  const idNormalizado = String(rawId || '').trim();
 
-  const existe = pallets.some((p) => String(p.id) === String(idNormalizado));
+  if (!idNormalizado) throw new Error('ID pallet requerido.');
+
+  const existe = pallets.some((p) => String(p.id) === idNormalizado);
   if (existe) throw new Error(`Pallet ${idNormalizado} ya existe.`);
 
   const clienteIdNum = Number(pallet.clienteId);
@@ -40,6 +42,7 @@ export function crearPallet(pallet) {
     lote: String(pallet.lote || '').trim(),
     contenedor: String(pallet.contenedor || '').trim(),
     kilos: Number(pallet.kilos) || 0,
+    cajas: Number(pallet.cajas) || 0,
     fechaVencimiento: String(pallet.fechaVencimiento || '').trim(),
     estado: pallet.estado || ESTADOS_PALLET.EN_CAMARA,
   };
