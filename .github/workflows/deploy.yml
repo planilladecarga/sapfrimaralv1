@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: VITE_APP_VERSION=${GITHUB_SHA::7} npm run build
 
       - name: Configure Pages
         uses: actions/configure-pages@v4.0.0
