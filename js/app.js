@@ -86,7 +86,7 @@ function renderVista(v) {
 
   if (v === 'pedidos') {
     const clientes = listarClientes().map((c) => `<option>${c.nombre}</option>`).join('');
-    app.innerHTML = `<section class="card"><h2>Pedidos</h2><div class="row"><button id="ped-new">Nuevo</button><span id="ped-num" class="muted">N° despacho: -</span></div><div class="row"><select id="ped-cli" disabled><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-save" disabled>Guardar pedido</button></div><p id="ped-msg" class="muted">Presione Nuevo para iniciar un pedido.</p><div id="ped-sel" class="card"><small class="muted">Sin pallets seleccionados para el pedido.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((ped) => `<tr><td>${ped.id}</td><td>${ped.numeroDespacho ?? ped.id}</td><td>${ped.cliente}</td><td>${ped.pallets.join(', ')}</td><td>${ped.estado}</td></tr>`).join('')}</table></section>`;
+    app.innerHTML = `<section class="card"><h2>Pedidos</h2><p class="muted">Flujo: <b>Nuevo</b> → Cliente → Contenedor → Pallet → Guardar pedido.</p><div class="row"><button id="ped-new">Nuevo</button><span id="ped-num" class="muted">N° despacho: -</span></div><div class="row"><select id="ped-cli" disabled><option value="">Cliente</option>${clientes}</select><select id="ped-cont" disabled><option value="">Contenedor</option></select><select id="ped-pal" disabled><option value="">Pallet</option></select><button id="ped-pallet-add" disabled>Agregar pallet</button><button id="ped-save" disabled>Guardar pedido</button></div><p id="ped-msg" class="muted">Presione Nuevo para iniciar un pedido.</p><div id="ped-sel" class="card"><small class="muted">Sin pallets seleccionados para el pedido.</small></div><table><tr><th>ID</th><th>N° Despacho</th><th>Cliente</th><th>Pallets</th><th>Estado</th></tr>${listarPedidos().map((ped) => `<tr><td>${ped.id}</td><td>${ped.numeroDespacho ?? ped.id}</td><td>${ped.cliente}</td><td>${ped.pallets.join(', ')}</td><td>${ped.estado}</td></tr>`).join('')}</table></section>`;
 
     const selected = [];
     let iniciado = false;
@@ -182,9 +182,25 @@ function renderVista(v) {
     };
 
     pedSave.onclick = () => {
-      if (!iniciado || !pedCli.value || !selected.length) return;
-      crearPedido(pedCli.value, selected);
-      renderVista('pedidos');
+      if (!iniciado) {
+        pedMsg.textContent = 'Debe presionar Nuevo para iniciar.';
+        return;
+      }
+      if (!pedCli.value) {
+        pedMsg.textContent = 'Debe seleccionar un cliente.';
+        return;
+      }
+      if (!selected.length) {
+        pedMsg.textContent = 'Debe agregar al menos un pallet.';
+        return;
+      }
+      try {
+        const pedido = crearPedido(pedCli.value, selected);
+        pedMsg.textContent = `Pedido #${pedido.id} creado (Despacho ${pedido.numeroDespacho}).`;
+        renderVista('pedidos');
+      } catch (err) {
+        pedMsg.textContent = err?.message || 'No se pudo crear el pedido.';
+      }
     };
 
     document.getElementById('ped-add').onclick = () => {
