@@ -36,8 +36,15 @@ jobs:
       - name: Build
         run: VITE_APP_VERSION=${GITHUB_SHA::7} npm run build
 
+      - name: Write build metadata artifact
+        run: |
+          cat > dist/build-meta.json <<EOF
+          {"sha":"${GITHUB_SHA}","shortSha":"${GITHUB_SHA::7}","buildTime":"${VITE_BUILD_TIME}"}
+          EOF
+          test -f dist/index.html
+
       - name: Configure Pages
-        uses: actions/configure-pages@v4.0.0
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3.0.1
