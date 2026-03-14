@@ -30,13 +30,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Set app metadata
-        run: |
-          echo "VITE_APP_VERSION=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          echo "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
+      - name: Set app version
+        run: echo "VITE_APP_VERSION=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Build
-        run: npm run build
+        run: VITE_APP_VERSION=${GITHUB_SHA::7} npm run build
+
+      - name: Write build metadata artifact
+        run: |
+          cat > dist/build-meta.json <<EOF
+          {"sha":"${GITHUB_SHA}","shortSha":"${GITHUB_SHA::7}","buildTime":"${VITE_BUILD_TIME}"}
+          EOF
+          test -f dist/index.html
 
       - name: Write build metadata artifact
         run: |
@@ -62,4 +67,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4.0.5
+        uses: actions/deploy-pages@v4
