@@ -16,6 +16,10 @@ export function guardarPedidos(lista) {
   guardarDatos(KEY, lista);
 }
 
+export function obtenerSiguienteNumeroDespacho() {
+  return listarPedidos().reduce((m, p) => Math.max(m, Number(p.numeroDespacho ?? p.id) || 0), 0) + 1;
+}
+
 export function crearPedido(cliente, palletIds = []) {
   const pallets = listarPallets();
   const ids = [...new Set(palletsSeleccionados.map((v) => String(v.id || '').trim()).filter(Boolean))];
@@ -30,9 +34,10 @@ export function crearPedido(cliente, palletIds = []) {
 
   const pedidos = listarPedidos();
   const nextId = pedidos.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0) + 1;
+  const numeroDespacho = obtenerSiguienteNumeroDespacho();
   const pedido = {
     id: nextId,
-    numeroDespacho: nextId,
+    numeroDespacho,
     cliente,
     pallets: ids,
     estado: ESTADOS_PEDIDO.ABIERTO,
